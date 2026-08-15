@@ -1,152 +1,101 @@
 # Reddit Slideshow
 
-A single-page site that turns a subreddit's image/GIF posts into a slideshow. No Reddit API
-key, no backend of its own — it scrapes `old.reddit.com`'s HTML directly in the browser.
+A bookmarklet (and userscript) that turns a subreddit listing on `old.reddit.com` into an
+image / GIF / video slideshow, injected directly into the page you're already on. No Reddit
+API, no proxy, no backend.
 
-Files: `index.html`, `style.css`, `script.js` (all the logic), plus an optional
-`worker/reddit-proxy-worker.js` for reliability (see below).
+## Why a bookmarklet instead of a website
 
-## How loading a subreddit works
+reddit.com's edge actively rejects cross-site requests made by another website's JavaScript —
+it inspects the `Sec-Fetch-Site`/`Origin` headers the browser itself attaches to any `fetch()`
+a page makes to a different origin, and blocks or redirects it. That's not something a CORS
+workaround, browser extension, or clever header trick can fix from a separate site, because the
+browser sets those headers itself and no client-side code can remove or fake them.
 
-1. **Parse whatever was typed or shared.** `stripToPath()` in `script.js` accepts a bare name
-   (`memes`), a path (`r/aww/top/`), or a full URL (`https://www.reddit.com/r/aww/top/?sort=top&t=month`)
-   and normalizes all of them down to a path-and-query string like `aww/top/?sort=top&t=month`.
-2. **Build the scrape URL.** That string is appended to `https://old.reddit.com/r/`.
-   `old.reddit.com` is used deliberately — it's still server-rendered HTML, unlike the
-   React-based `www.reddit.com`, so the listing can be parsed with plain `DOMParser`.
-3. **Fetch it through a proxy chain.** `fetchRedditHtml()` tries a list of proxies in order
-   and returns the first one that yields real content — see "Why a proxy is needed" below.
-4. **Extract posts.** `parseRedditHtml()` walks every `.thing` element (Reddit's per-post
-   container in the old markup) and reads its `data-url` attribute — the actual link target of
-   that post. A regex keeps only direct image/GIF links:
-   - `.jpg/.jpeg/.png/.gif/.webp` → shown as an `<img>` (animated GIFs just play natively).
-   - imgur `.gifv` → rewritten to the equivalent `.mp4` and shown as a looping muted `<video>`
-     (imgur serves an actual video file at that same path).
-   - `v.redd.it` → played with real audio via `hls.js` — see "Video posts" below.
-   - Galleries (`data-is-gallery="true"`) → unrolled into one item per image — see "Gallery
-     posts" below.
-   - Anything else (text posts, link posts) is skipped.
-5. **Render.** The first post becomes the current slide; Prev/Next/autoplay just walk the
-   `items` array and re-render.
+Running the tool *on reddit.com's own page* sidesteps the problem entirely: there's no
+cross-site request in the first place. `document` already *is* the fully-loaded listing page,
+same-origin `fetch()` for pagination works normally, and the user's real logged-in session
+(cookies included) applies — so NSFW and quarantined subreddits just work if the user is
+logged in and opted in, with no cookie-injection hacks needed.
 
-## Why a proxy is needed, and why there are several
+This project used to be a standalone site with its own subreddit-input box, fetching pages
+through a chain of CORS proxies (public ones, plus an optional self-hosted Cloudflare Worker)
+to get around exactly the block described above. That approach worked but was inherently
+fragile — public proxies get rate-limited or blocked, and even the Worker was only ever a
+workaround for a problem this architecture doesn't have. See git history for that version.
 
-`old.reddit.com` sends no `Access-Control-Allow-Origin` header, so a plain `fetch()` from this
-page is blocked by the browser's CORS policy. Worse, Reddit's edge actively rejects
-cross-site browser fetches outright (it inspects the `Sec-Fetch-Site`/`Origin` headers a
-page's JS fetch sends and returns a `Blocked` interstitial or silently redirects to a login
-wall) — a "CORS-unblock" browser extension doesn't help here, because it only changes what
-the *browser* lets script read; it can't change how Reddit's server treats the request.
+## Files
 
-A request that originates from a server instead — no browser fetch fingerprint — isn't
-rejected the same way. That's what every entry in `PROXIES` (top of `script.js`) relies on:
+- **`inject.js`** — the entire tool. Extracts posts from the live page, builds a Shadow-DOM
+  overlay UI, and runs the slideshow. This is the only file that matters functionally; the
+  files below just get it loaded.
+- **`vendor/hls.min.js`** — [hls.js](https://github.com/video-dev/hls.js), self-hosted (not a
+  CDN dependency), for playing Reddit-hosted video with audio in non-Safari browsers.
+- **`index.html` / `style.css`** — the install/landing page (this repo's GitHub Pages site),
+  not part of the tool itself.
+- **`bookmarklet.js`** — readable source for the bookmarklet; the actual bookmarklet on the
+  install page is this same logic minified into a `javascript:` URI.
+- **`reddit-slideshow.user.js`** — a Tampermonkey/Violentmonkey userscript that adds a small
+  "▶ Slideshow" button to every `old.reddit.com/r/*` page, using the same loader logic.
 
-```js
-const PROXIES = [
-  ...(WORKER_PROXY_URL ? [yourWorker] : []),
-  allorigins.win,
-  corsproxy.io,
-  null,  // last resort: a direct fetch with no proxy at all
-];
-```
+Both the bookmarklet and the userscript do the same thing: load `vendor/hls.min.js` (if not
+already loaded) via `<script src>`, then load `inject.js` the same way. Script tags aren't
+subject to CORS regardless of origin — only reading a `fetch()`/`XHR` response body is — so
+this works even though it's pulling from `charliemorris56.github.io` while running on
+`old.reddit.com`. Everything else the tool does from that point on is same-origin.
 
-`fetchRedditHtml()` tries each in order and falls through on failure. It also actively
-detects several non-obvious "this isn't the real listing" responses — a `Blocked`
-interstitial, a `/login/` redirect, a quarantine notice — and retries the next proxy instead
-of treating any of them as the real listing, even though each arrives as a normal `200 OK`.
+## How extraction works
 
-**The public proxies (`allorigins.win`, `corsproxy.io`) are free, third-party, and
-consequently unreliable** — they get rate-limited, go down, or get blocked by Reddit
-themselves since their IPs are shared across everyone using them. For anything beyond casual
-use, deploy your own relay:
+`extractItemsFromDoc(doc, baseUrl)` in `inject.js` walks every `.thing` element (Reddit's
+per-post container in old.reddit's markup) and reads its `data-url` attribute:
 
-### Optional: your own Cloudflare Worker proxy
+- `.jpg/.jpeg/.png/.gif/.webp` → shown as an `<img>` (animated GIFs just play natively).
+- imgur `.gifv` → rewritten to the equivalent `.mp4`, shown as a looping muted `<video>`.
+- `v.redd.it` (no extension in its own `data-url`) → the real HLS manifest is pre-rendered,
+  HTML-escaped *twice*, inside the post's sibling `.expando[data-cachedhtml]` attribute
+  (old.reddit's mechanism for instant-expanding video without a request). `extractHlsUrl()`
+  reads the attribute (browser undoes one escaping layer), then parses *that string* as HTML
+  again to undo the second layer and land on a clean `.m3u8` URL, played via `hls.js`
+  (Safari/iOS get native HLS, no library needed).
+- `data-is-gallery="true"` → same `data-cachedhtml` mechanism, different contents: one
+  `a.gallery-item-thumbnail-link[href]` per image, each already a full-size signed
+  `preview.redd.it` URL. `extractGalleryImages()` reads them all; each becomes its own slide
+  (tagged with `galleryId`/`galleryIndex`/`galleryTotal`) rather than a nested sub-slideshow.
+- Anything else (text posts, link posts) is skipped.
 
-`worker/reddit-proxy-worker.js` is a ~40-line Worker that does the same job — fetch the page
-server-side, return it with CORS headers — but from infrastructure only you use, so it isn't
-already flagged. It only relays requests targeting `*.reddit.com` over `https`, GET only; it
-is not an open proxy.
+This function takes a `Document`, not an HTML string, so the exact same code handles both the
+initial scan (`document`, already live) and "Load more" pagination (a same-origin `fetch()` of
+Reddit's own "next ›" link, parsed via `DOMParser`).
 
-1. [Cloudflare dashboard](https://dash.cloudflare.com) → Workers & Pages → Create → Create
-   Worker (free, no card required).
-2. Name it, deploy the default, then "Edit code" and paste in
-   `worker/reddit-proxy-worker.js`. Save & Deploy.
-3. Copy the resulting `https://<name>.<subdomain>.workers.dev` URL.
-4. Paste it into `WORKER_PROXY_URL` near the top of `script.js`. It's tried first,
-   automatically, once set.
+## UI
 
-## Video posts
+Built as a Shadow DOM overlay (`hostEl.attachShadow({ mode: "open" })`) so reddit's page CSS
+can't leak in and the tool's CSS can't leak out. `:host { all: initial }` plus an explicit
+reset on the shell wrapper guards against inherited properties (font, color) bleeding through
+the shadow boundary, which Shadow DOM doesn't block by default (only *selector-based* rules are
+scoped — inherited properties still cross it).
 
-`v.redd.it` posts have no playable URL in their own `data-url` (just `https://v.redd.it/<id>`)
-— the actual HLS manifest is pre-rendered as an HTML-escaped HTML fragment in the post's
-sibling `.expando[data-cachedhtml]` attribute (old.reddit's mechanism for instant-expanding
-video without a request). `extractHlsUrl()` unwraps it: read the attribute (the browser undoes
-one layer of escaping), then parse *that string* as HTML again to undo the second layer and
-land on a clean `.m3u8` URL.
+- **Prev / Next** — arrow buttons over the media, `←`/`→` keys, touch swipe. Keydown handling
+  calls `stopPropagation()` so old.reddit's own `j`/`k`/arrow shortcuts don't also fire.
+- **Autoplay** — range slider + synced editable number input, 2–15s, Space bar toggles it.
+- **Fullscreen** — expands the media viewport via the Fullscreen API (works fine on a
+  shadow-hosted element); a circular ✕ appears top-right, a duplicate "Skip gallery" button
+  top-left when relevant, since the rest of the overlay chrome isn't visible in fullscreen.
+- **Gallery badge / Skip gallery** — "🖼 Gallery N / M" badge while on a gallery slide; a
+  button that jumps to the first slide whose `galleryId` differs from the current one.
+- **Close (✕, top bar)** — tears the whole overlay down, stops autoplay, destroys any active
+  `Hls` instance, exits fullscreen if active.
 
-Playing it needs `hls.js` (self-hosted in `vendor/hls.min.js`, loaded before `script.js`) since
-no browser except Safari plays HLS natively. `renderSlide()` feeds the manifest to `Hls` via
-`attachMedia`, with a native-HLS fallback (`canPlayType('application/vnd.apple.mpegurl')`) for
-Safari/iOS. Unlike the muted, controls-less gifv treatment, these get real `controls` — they're
-actual videos, not gif-like loops — starting muted (autoplay-with-sound is blocked by every
-browser) with the native controls bar as the way to unmute. Each `Hls` instance is destroyed
-in `renderSlide()` before the next slide renders, cancelling any in-flight segment fetches.
-
-## Gallery posts
-
-Same `data-cachedhtml` expando as above, different contents: `data-is-gallery="true"` posts
-list one `a.gallery-item-thumbnail-link[href]` per image, in order — each already a full-size,
-signed `preview.redd.it` URL. `extractGalleryImages()` reads them all and `parseRedditHtml()`
-pushes one item per image, tagging each with `galleryId`/`galleryIndex`/`galleryTotal` instead
-of nesting a sub-slideshow — they're just consecutive slides in the normal flow, with a
-"🖼 Gallery N / M" badge and a **Skip gallery** button (visible only mid-gallery) that jumps to
-the first item whose `galleryId` differs from the current one.
-
-## URL formats and sharing
-
-The page's own URL takes an `r` query parameter holding the same path-and-query format
-described above, e.g.:
-
-```
-index.html?r=memes
-index.html?r=aww/top/?sort=top&t=month
-```
-
-Note the second example: the value itself contains `?` and `&`. Standard query-string
-parsing (`URLSearchParams`) would incorrectly split that into separate top-level params.
-`readQueryParam()` avoids this by taking everything after `r=` as a single literal string
-instead of parsing it as delimited key/value pairs — so a subreddit's own sort/time query
-survives intact. The **Share** button and `updateAddressBar()` write links in this same
-format, and reading is symmetric with an optional `decodeURIComponent()` pass so a
-percent-encoded value works too.
-
-## Sort / time settings (the ⚙ cog)
-
-Next to the input box, the cog opens Sort (Hot/New/Rising/Controversial/Top) and, only for
-Top/Controversial, a Time range (Hour/Day/Week/Month/Year/All time). It only ever modifies a
-**bare subreddit name** — `applySortSettings()` checks for the presence of `/` or `?` in the
-typed value first, and leaves anything that already looks like a path or full URL completely
-untouched. After every successful load, `syncSortControlsFromPath()` reads the sort/time back
-out of whatever path actually loaded (even a hand-typed one) so the cog stays truthful.
-
-## Slideshow controls
-
-- **Prev / Next** — arrow buttons over the media, plus `←`/`→` keys and touch swipe.
-- **Autoplay** — a range slider paired with a live-synced number input (both editable,
-  clamped to 2–15s), advancing one slide per interval. Space bar toggles it.
-- **Fullscreen** — expands the media viewport (not the whole page chrome) via the
-  Fullscreen API; a circular ✕ button appears top-right while active.
-- **Share** — copies the current subreddit's shareable link to the clipboard (falls back to
-  a `prompt()` if clipboard access is unavailable).
-- **Load more** — fetches Reddit's next page (using the `after` cursor from its own
-  pagination link) and appends new posts, de-duplicated by image URL.
-- **Skip gallery** — visible only on a gallery slide, jumps past its remaining images to the
-  next post.
+Re-triggering (bookmarklet clicked again, or the userscript's button clicked again) reopens an
+already-built overlay via `window.__redditSlideshowToggle()` instead of rebuilding it, unless
+it was closed first — closing fully tears down and resets `window.__redditSlideshowLoaded` so
+the next trigger does a clean rebuild.
 
 ## Known limitations
 
-- **NSFW subreddits need the Worker** — it's the only proxy that can send the age-gate cookie;
-  quarantined subreddits are unsupported regardless (needs a logged-in, opted-in account).
-- **Reliability depends on the proxy in use.** Expect occasional failures on the public
-  proxies; the error message always says why (blocked, rate-limited, empty response, etc.)
-  and suggests deploying the Worker.
+- Only works on `old.reddit.com` listing pages — the extraction logic depends on markup
+  (`.thing`, `data-cachedhtml`) that doesn't exist on the React-based `www.reddit.com`.
+- Quarantined subreddits still need the user to be logged in and opted in on their real Reddit
+  account — same as browsing reddit normally, no way around that from any tool.
+- Bookmarklets are fiddly to install on mobile (no drag-and-drop) — see the install page for
+  the workaround (bookmark any page, then edit its URL).
