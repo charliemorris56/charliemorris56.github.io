@@ -51,21 +51,38 @@ per-post container in old.reddit's markup) and reads its `data-url` attribute:
 
 - `.jpg/.jpeg/.png/.gif/.webp` → shown as an `<img>` (animated GIFs just play natively).
 - imgur `.gifv` → rewritten to the equivalent `.mp4`, shown as a looping muted `<video>`.
-- `v.redd.it` (no extension in its own `data-url`) → the real HLS manifest is pre-rendered,
-  HTML-escaped *twice*, inside the post's sibling `.expando[data-cachedhtml]` attribute
-  (old.reddit's mechanism for instant-expanding video without a request). `extractHlsUrl()`
-  reads the attribute (browser undoes one escaping layer), then parses *that string* as HTML
-  again to undo the second layer and land on a clean `.m3u8` URL, played via `hls.js`
-  (Safari/iOS get native HLS, no library needed).
-- `data-is-gallery="true"` → same `data-cachedhtml` mechanism, different contents: one
-  `a.gallery-item-thumbnail-link[href]` per image, each already a full-size signed
-  `preview.redd.it` URL. `extractGalleryImages()` reads them all; each becomes its own slide
-  (tagged with `galleryId`/`galleryIndex`/`galleryTotal`) rather than a nested sub-slideshow.
+- `v.redd.it` (no extension in its own `data-url`) → the real HLS manifest is played via
+  `hls.js` (Safari/iOS get native HLS, no library needed). Where that manifest URL actually
+  *is* depends on what kind of page is loaded — see below.
+- `data-is-gallery="true"` → each image becomes its own slide (tagged with
+  `galleryId`/`galleryIndex`/`galleryTotal`) rather than a nested sub-slideshow. Same
+  two-location story as video — see below.
 - Anything else (text posts, link posts) is skipped.
 
 This function takes a `Document`, not an HTML string, so the exact same code handles both the
 initial scan (`document`, already live) and "Load more" pagination (a same-origin `fetch()` of
 Reddit's own "next ›" link, parsed via `DOMParser`).
+
+### Video and gallery content live in two different places depending on the page
+
+On a **subreddit listing**, video/gallery previews are collapsed by default — their real
+content (the HLS manifest URL, or the gallery's image links) only exists pre-rendered as an
+HTML-escaped *string*, stored *twice*-escaped inside the post's sibling
+`.expando[data-cachedhtml]` attribute (old.reddit's mechanism for instant-expanding media
+without a request). Reading it out takes two passes: the browser's own attribute parsing undoes
+one escaping layer, leaving a string that still needs parsing *as HTML* itself to undo the
+second layer.
+
+On a post's **own comments page**, that same content is already expanded directly into the live
+DOM — there is no `data-cachedhtml` at all in that case, and `data-hls-url` /
+`a.gallery-item-thumbnail-link` elements are just sitting there as normal, unescaped markup.
+
+`extractHlsUrl()` and `extractGalleryImages()` both try the direct, already-expanded case
+first (`thing.querySelector(...)`), and only fall back to unwrapping `data-cachedhtml` if
+nothing's found that way. Missing either case means video/gallery posts silently fail to load
+depending on which kind of page they're viewed from — this bit us once already: both functions
+originally *only* checked `data-cachedhtml`, so they worked fine on listing pages but silently
+found nothing on a post's own comments page.
 
 ## UI
 

@@ -38,7 +38,16 @@
     return null;
   }
 
+  // On a subreddit listing page, video/gallery previews are collapsed —
+  // their content only exists as the doubly-escaped data-cachedhtml string.
+  // On a post's own comments page, that same content is already expanded
+  // directly into the live DOM (no data-cachedhtml at all), so it has to be
+  // read straight off `thing` first, falling back to the cachedhtml unwrap
+  // only when nothing's there directly.
   function extractHlsUrl(thing) {
+    const directEl = thing.querySelector("[data-hls-url]");
+    if (directEl) return directEl.getAttribute("data-hls-url");
+
     const expando = thing.querySelector(".expando[data-cachedhtml]");
     const cached = expando ? expando.getAttribute("data-cachedhtml") : null;
     if (!cached) return null;
@@ -48,6 +57,11 @@
   }
 
   function extractGalleryImages(thing) {
+    const direct = Array.from(thing.querySelectorAll("a.gallery-item-thumbnail-link[href]"))
+      .map((a) => a.getAttribute("href"))
+      .filter(Boolean);
+    if (direct.length) return direct;
+
     const expando = thing.querySelector(".expando[data-cachedhtml]");
     const cached = expando ? expando.getAttribute("data-cachedhtml") : null;
     if (!cached) return [];

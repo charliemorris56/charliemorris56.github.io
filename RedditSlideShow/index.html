@@ -28,14 +28,41 @@
       </p>
 
       <div class="install-option">
-        <h3>Bookmarklet (works everywhere, no extension)</h3>
+        <h3>Desktop: bookmarklet</h3>
         <p>Drag this to your bookmarks bar:</p>
         <a id="bookmarklet-link" class="bookmarklet-btn" href="#" onclick="return false;">▶ Reddit Slideshow</a>
+      </div>
+
+      <div class="install-option">
+        <h3>Android: bookmarklet</h3>
+        <p>No drag-and-drop on mobile, so you edit a bookmark's URL instead:</p>
+        <ol>
+          <li>Open Chrome, go to any page, tap the ⋮ menu &rarr; <strong>Star / Bookmark this page</strong>.</li>
+          <li>Tap ⋮ &rarr; <strong>Bookmarks</strong>, find the one you just made, tap ⋮ next to it &rarr; <strong>Edit</strong>.</li>
+          <li>Copy the code below, paste it into the bookmark's <strong>URL</strong> field (replacing what's there), rename it to "Reddit Slideshow", save.</li>
+          <li>Browse to a subreddit on <code>old.reddit.com</code>, open Bookmarks, tap it to run.</li>
+        </ol>
         <p class="hint">
-          On mobile, drag-and-drop won't work &mdash; bookmark any page first, then edit that
-          bookmark and replace its URL with the bookmarklet's (long-press the button above to
-          copy its link, or view page source).
+          Some Chrome versions restrict <code>javascript:</code> bookmarks &mdash; if tapping it does
+          nothing, use the userscript route below instead (Kiwi Browser or Firefox).
         </p>
+      </div>
+
+      <div class="install-option">
+        <h3>iPhone / iPad: bookmarklet</h3>
+        <ol>
+          <li>In Safari, open any page, tap the Share icon &rarr; <strong>Add Bookmark</strong>.</li>
+          <li>Tap the Bookmarks icon (open book), find it, swipe left &rarr; <strong>Edit</strong> (or tap Edit).</li>
+          <li>Copy the code below, paste it into the <strong>Address</strong> field (replacing what's there), rename it to "Reddit Slideshow", save.</li>
+          <li>Browse to a subreddit on <code>old.reddit.com</code> in Safari, open Bookmarks, tap it to run.</li>
+        </ol>
+      </div>
+
+      <div class="install-option">
+        <h3>Copy the raw bookmarklet code</h3>
+        <p class="hint">Tap the box to select it all, then copy &mdash; needed for both mobile steps above.</p>
+        <textarea id="bookmarklet-code" class="code-box" readonly rows="3" onclick="this.select()"></textarea>
+        <button id="copy-code-btn" type="button" class="bookmarklet-btn copy-btn">Copy</button>
       </div>
 
       <div class="install-option">
@@ -45,8 +72,12 @@
           (or Violentmonkey) installed, open
           <a href="reddit-slideshow.user.js">reddit-slideshow.user.js</a> and it'll offer to
           install itself. Adds a small "▶ Slideshow" button to every old.reddit.com subreddit
-          page.
+          page. This is desktop-only in most browsers, but works on mobile too via:
         </p>
+        <ul>
+          <li><strong>Android</strong>: <a href="https://kiwibrowser.com/" target="_blank" rel="noopener">Kiwi Browser</a> (supports Chrome extensions &mdash; install Tampermonkey from the Chrome Web Store inside it), or Firefox for Android with the Violentmonkey add-on.</li>
+          <li><strong>iOS</strong>: search the App Store for "Userscripts" (a free Safari extension by quoid) &mdash; enable it in Settings &rarr; Safari &rarr; Extensions, then open the userscript link above in Safari.</li>
+        </ul>
       </div>
     </section>
 
@@ -65,7 +96,7 @@
         reddit.com actively rejects cross-site requests from other websites' JavaScript &mdash;
         no workaround from a separate site can reliably get around that. Running directly on
         reddit.com's own page sidesteps the problem entirely: there's no cross-site request to
-        block in the first place. See <a href="README.md">README.md</a> for the full technical
+        block in the first place. See <a href="readme.html">README.md</a> for the full technical
         story, including how video and gallery posts are extracted.
       </p>
     </section>
@@ -85,6 +116,30 @@
       "return}function C(){L(B+'inject.js?t='+Date.now(),function(){})}if(window.Hls){C()}else{" +
       "L(B+'vendor/hls.min.js',C)}})();";
     document.getElementById("bookmarklet-link").setAttribute("href", src);
+    document.getElementById("bookmarklet-code").value = src;
+
+    var copyBtn = document.getElementById("copy-code-btn");
+    copyBtn.addEventListener("click", function () {
+      var codeBox = document.getElementById("bookmarklet-code");
+      var original = copyBtn.textContent;
+      function done(ok) {
+        copyBtn.textContent = ok ? "Copied!" : "Copy failed — select manually";
+        setTimeout(function () {
+          copyBtn.textContent = original;
+        }, 1500);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(src).then(function () {
+          done(true);
+        }, function () {
+          codeBox.select();
+          done(document.execCommand("copy"));
+        });
+      } else {
+        codeBox.select();
+        done(document.execCommand("copy"));
+      }
+    });
   })();
 </script>
 </body>
