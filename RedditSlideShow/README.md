@@ -15,7 +15,7 @@ browser sets those headers itself and no client-side code can remove or fake the
 Running the tool *on reddit.com's own page* sidesteps the problem entirely: there's no
 cross-site request in the first place. `document` already *is* the fully-loaded listing page,
 same-origin `fetch()` for pagination works normally, and the user's real logged-in session
-(cookies included) applies — so NSFW and quarantined subreddits just work if the user is
+(cookies included) applies — so quarantined subreddits just work if the user is
 logged in and opted in, with no cookie-injection hacks needed.
 
 This project used to be a standalone site with its own subreddit-input box, fetching pages
