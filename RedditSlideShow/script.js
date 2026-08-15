@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   "use strict";
 
   // Fill this in after deploying worker/reddit-proxy-worker.js to Cloudflare
@@ -162,8 +162,18 @@
   const REDDIT_BLOCKED_RE =
     /<title>\s*Blocked\s*<\/title>|Log in or sign up to personalize your feed/i;
 
+  const NSFW_GATE_RE = /<title>\s*reddit\.com:\s*over 18\?/i;
+
+  const QUARANTINED_RE = /quarantined/i;
+
   async function fetchRedditHtml(targetUrl) {
     let lastError = null;
+    // A classified response (BLOCKED/QUARANTINED/NSFW_GATE) is far more useful
+    // to show the user than whatever generic network error a later proxy
+    // attempt fails with — e.g. the always-last direct-fetch attempt reliably
+    // fails with a plain "Failed to fetch", which would otherwise mask a more
+    // specific classification an earlier proxy already found.
+    let codedError = null;
     for (const buildProxyUrl of PROXIES) {
       const proxyUrl = buildProxyUrl ? buildProxyUrl(targetUrl) : targetUrl;
       try {
@@ -174,11 +184,29 @@
         }
         const text = await res.text();
         if (REDDIT_BLOCKED_RE.test(text)) {
-          lastError = Object.assign(
+          codedError = Object.assign(
             new Error(
               "Reddit blocked this request via every proxy tried. Deploy worker/reddit-proxy-worker.js and set WORKER_PROXY_URL in script.js."
             ),
             { code: "BLOCKED" }
+          );
+          continue;
+        }
+        if (QUARANTINED_RE.test(text)) {
+          codedError = Object.assign(
+            new Error(
+              "That subreddit is quarantined, which requires a logged-in, opted-in Reddit account — this tool can't get past that."
+            ),
+            { code: "QUARANTINED" }
+          );
+          continue;
+        }
+        if (NSFW_GATE_RE.test(text)) {
+          codedError = Object.assign(
+            new Error(
+              "That subreddit is NSFW-gated. Deploy worker/reddit-proxy-worker.js and set WORKER_PROXY_URL in script.js — it sends the cookie needed to get past the age gate; the public proxy fallbacks can't."
+            ),
+            { code: "NSFW_GATE" }
           );
           continue;
         }
@@ -190,7 +218,7 @@
         lastError = err;
       }
     }
-    throw lastError || new Error("All proxies failed");
+    throw codedError || lastError || new Error("All proxies failed");
   }
 
   // ---------- HTML parsing ----------
@@ -208,14 +236,6 @@
 
   function parseRedditHtml(html, baseListUrl) {
     const doc = new DOMParser().parseFromString(html, "text/html");
-
-    if (/you must be over eighteen|quarantined/i.test(doc.body ? doc.body.textContent.slice(0, 3000) : "")) {
-      const err = new Error(
-        "That subreddit requires age/quarantine confirmation, which this tool can't get past."
-      );
-      err.code = "QUARANTINED";
-      throw err;
-    }
 
     const things = Array.from(doc.querySelectorAll(".thing"));
     const items = [];
@@ -332,7 +352,7 @@
     stopAutoplay();
     const seconds = Number(els.autoplaySpeed.value) || 5;
     state.autoplayTimer = setInterval(() => goTo(1), seconds * 1000);
-    els.autoplayBtn.textContent = "⏸ Pause";
+    els.autoplayBtn.textContent = "â¸ Pause";
   }
 
   function toggleAutoplay() {
@@ -415,7 +435,7 @@
     } catch (err) {
       showSpinner(false);
       const msg =
-        err && (err.code === "QUARANTINED" || err.code === "BLOCKED")
+        err && (err.code === "QUARANTINED" || err.code === "BLOCKED" || err.code === "NSFW_GATE")
           ? err.message
           : `Couldn't load that subreddit (${err && err.message ? err.message : "unknown error"}). Deploy worker/reddit-proxy-worker.js and set WORKER_PROXY_URL in script.js for reliable loading &mdash; the public proxy fallbacks are frequently down or rate-limited.`;
       setStatus(msg, true);
@@ -436,7 +456,7 @@
       renderSlide();
     } catch (err) {
       const msg =
-        err && (err.code === "QUARANTINED" || err.code === "BLOCKED")
+        err && (err.code === "QUARANTINED" || err.code === "BLOCKED" || err.code === "NSFW_GATE")
           ? err.message
           : "Failed to load more posts. Try again shortly.";
       setStatus(msg, true);
@@ -541,3 +561,4 @@
     }
   })();
 })();
+

@@ -115,8 +115,9 @@
     <p>
       Client-side scraper &mdash; no Reddit API involved. Reddit rejects cross-site browser fetches outright, so
       this relies on a small self-hosted relay (see <code>worker/reddit-proxy-worker.js</code>) to fetch pages
-      server-side; public CORS proxies are used as a fallback but are frequently down or rate-limited. Galleries,
-      Reddit-hosted video (v.redd.it), and NSFW-gated / quarantined subreddits are not supported.
+      server-side; public CORS proxies are used as a fallback but are frequently down or rate-limited. Without it they'll show
+      an error explaining why. Galleries, Reddit-hosted video (v.redd.it), and quarantined subreddits still aren't
+      supported.
     </p>
   </footer>
 

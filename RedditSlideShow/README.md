@@ -49,10 +49,7 @@ const PROXIES = [
 ```
 
 `fetchRedditHtml()` tries each in order and falls through on failure. It also actively
-detects Reddit's two known anti-scraping responses — a `<title>Blocked</title>` interstitial
-and a soft redirect to the `/login/` wall — and treats *both* as failures worth retrying the
-next proxy, even though they arrive as a normal `200 OK` with full HTML (without this check,
-the fallback chain would stop and treat the block page as if it were the real listing).
+detects several non-obvious "this isn't the real listing" responses — a
 
 **The public proxies (`allorigins.win`, `corsproxy.io`) are free, third-party, and
 consequently unreliable** — they get rate-limited, go down, or get blocked by Reddit
@@ -118,9 +115,6 @@ out of whatever path actually loaded (even a hand-typed one) so the cog stays tr
 - **Galleries and `v.redd.it` video are skipped.** Only posts whose `data-url` is a direct
   image/GIF link are extracted; gallery posts and Reddit-hosted video need extra API calls
   this tool doesn't make.
-- **Quarantined / age-gated subreddits aren't supported** — they require an interactive
-  consent step this tool can't get past, and are reported as such rather than silently
-  failing.
 - **Reliability depends on the proxy in use.** Expect occasional failures on the public
   proxies; the error message always says why (blocked, rate-limited, empty response, etc.)
   and suggests deploying the Worker.
