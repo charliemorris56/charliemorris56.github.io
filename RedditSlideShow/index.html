@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reddit Slideshow</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <h1>Reddit Slideshow</h1>
+    <form id="load-form" class="load-form" autocomplete="off">
+      <input
+        id="sub-input"
+        type="text"
+        placeholder="e.g. memes  or  r/aww/top/?sort=top&t=month  or a reddit URL"
+        spellcheck="false"
+      >
+      <div class="sort-control">
+        <button
+          type="button"
+          id="sort-toggle-btn"
+          class="icon-btn"
+          title="Sort settings"
+          aria-haspopup="true"
+          aria-expanded="false"
+        >&#9881;</button>
+        <div id="sort-panel" class="sort-panel hidden">
+          <label>
+            Sort
+            <select id="sort-select">
+              <option value="hot">Hot</option>
+              <option value="new">New</option>
+              <option value="rising">Rising</option>
+              <option value="controversial">Controversial</option>
+              <option value="top">Top</option>
+            </select>
+          </label>
+          <label id="time-label">
+            Time
+            <select id="time-select">
+              <option value="hour">Hour</option>
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month" selected>Month</option>
+              <option value="year">Year</option>
+              <option value="all">All time</option>
+            </select>
+          </label>
+          <p class="sort-panel-hint">
+            Only applies when the box above has just a subreddit name. A pasted URL or path is used as-is.
+          </p>
+        </div>
+      </div>
+      <button type="submit">Load</button>
+    </form>
+  </header>
+
+  <main id="status-area" class="status-area">
+    <p class="hint">
+      Paste a subreddit name, a subreddit path, or a full reddit URL and hit Load.
+      Only image and GIF posts are shown &mdash; no Reddit API is used, the listing page is scraped directly.
+    </p>
+  </main>
+
+  <div id="spinner" class="spinner hidden" aria-hidden="true"></div>
+
+  <section id="slideshow" class="slideshow hidden">
+    <div class="slideshow-header">
+      <a id="sub-title" class="sub-title" href="#" target="_blank" rel="noopener"></a>
+      <span id="slide-counter" class="slide-counter"></span>
+      <div class="slideshow-actions">
+        <button id="autoplay-btn" type="button" title="Toggle autoplay">▶ Autoplay</button>
+        <input id="autoplay-speed" type="range" min="2" max="15" value="5" title="Autoplay interval (seconds)">
+        <button id="share-btn" type="button" title="Copy shareable link">🔗 Share</button>
+        <button id="fullscreen-btn" type="button" title="Toggle fullscreen">⛶</button>
+      </div>
+    </div>
+
+    <div class="media-viewport" id="media-viewport">
+      <button id="prev-btn" class="nav-arrow nav-arrow-left" type="button" aria-label="Previous">&#10094;</button>
+      <div id="media-container" class="media-container"></div>
+      <button id="next-btn" class="nav-arrow nav-arrow-right" type="button" aria-label="Next">&#10095;</button>
+    </div>
+
+    <div class="slideshow-footer">
+      <a id="permalink" class="permalink" href="#" target="_blank" rel="noopener">View post on Reddit ↗</a>
+      <button id="load-more-btn" class="hidden" type="button">Load more posts</button>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <p>
+      Client-side scraper &mdash; no Reddit API involved. Reddit rejects cross-site browser fetches outright, so
+      this relies on a small self-hosted relay (see <code>worker/reddit-proxy-worker.js</code>) to fetch pages
+      server-side; public CORS proxies are used as a fallback but are frequently down or rate-limited. Galleries,
+      Reddit-hosted video (v.redd.it), and NSFW-gated / quarantined subreddits are not supported.
+    </p>
+  </footer>
+
+<script src="script.js"></script>
+</body>
+</html>
