@@ -23,7 +23,9 @@ Files: `index.html`, `style.css`, `script.js` (all the logic), plus an optional
    - imgur `.gifv` → rewritten to the equivalent `.mp4` and shown as a looping muted `<video>`
      (imgur serves an actual video file at that same path).
    - `v.redd.it` → played with real audio via `hls.js` — see "Video posts" below.
-   - Anything else (gallery posts, text posts, link posts) is skipped — see Limitations.
+   - Galleries (`data-is-gallery="true"`) → unrolled into one item per image — see "Gallery
+     posts" below.
+   - Anything else (text posts, link posts) is skipped.
 5. **Render.** The first post becomes the current slide; Prev/Next/autoplay just walk the
    `items` array and re-render.
 
@@ -90,6 +92,16 @@ actual videos, not gif-like loops — starting muted (autoplay-with-sound is blo
 browser) with the native controls bar as the way to unmute. Each `Hls` instance is destroyed
 in `renderSlide()` before the next slide renders, cancelling any in-flight segment fetches.
 
+## Gallery posts
+
+Same `data-cachedhtml` expando as above, different contents: `data-is-gallery="true"` posts
+list one `a.gallery-item-thumbnail-link[href]` per image, in order — each already a full-size,
+signed `preview.redd.it` URL. `extractGalleryImages()` reads them all and `parseRedditHtml()`
+pushes one item per image, tagging each with `galleryId`/`galleryIndex`/`galleryTotal` instead
+of nesting a sub-slideshow — they're just consecutive slides in the normal flow, with a
+"🖼 Gallery N / M" badge and a **Skip gallery** button (visible only mid-gallery) that jumps to
+the first item whose `galleryId` differs from the current one.
+
 ## URL formats and sharing
 
 The page's own URL takes an `r` query parameter holding the same path-and-query format
@@ -128,10 +140,12 @@ out of whatever path actually loaded (even a hand-typed one) so the cog stays tr
   a `prompt()` if clipboard access is unavailable).
 - **Load more** — fetches Reddit's next page (using the `after` cursor from its own
   pagination link) and appends new posts, de-duplicated by image URL.
+- **Skip gallery** — visible only on a gallery slide, jumps past its remaining images to the
+  next post.
 
 ## Known limitations
 
-- **Galleries are skipped.** Multi-image gallery posts have no single `data-url` to extract.
+- **NSFW subreddits need the Worker** — it's the only proxy that can send the age-gate cookie;
   quarantined subreddits are unsupported regardless (needs a logged-in, opted-in account).
 - **Reliability depends on the proxy in use.** Expect occasional failures on the public
   proxies; the error message always says why (blocked, rate-limited, empty response, etc.)

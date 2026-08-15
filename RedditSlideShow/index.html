@@ -70,7 +70,9 @@
     <div class="slideshow-header">
       <a id="sub-title" class="sub-title" href="#" target="_blank" rel="noopener"></a>
       <span id="slide-counter" class="slide-counter"></span>
+      <span id="gallery-badge" class="gallery-badge hidden"></span>
       <div class="slideshow-actions">
+        <button id="skip-gallery-btn" class="hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
         <button id="autoplay-btn" type="button" title="Toggle autoplay">▶ Autoplay</button>
         <div class="autoplay-speed-control">
           <input
@@ -103,6 +105,7 @@
       <div id="media-container" class="media-container"></div>
       <button id="next-btn" class="nav-arrow nav-arrow-right" type="button" aria-label="Next">&#10095;</button>
       <button id="exit-fullscreen-btn" class="exit-fullscreen-btn" type="button" aria-label="Exit fullscreen" title="Exit fullscreen">&times;</button>
+      <button id="skip-gallery-btn-fs" class="skip-gallery-fs-btn hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
     </div>
 
     <div class="slideshow-footer">
@@ -116,7 +119,8 @@
       Client-side scraper &mdash; no Reddit API involved. Reddit rejects cross-site browser fetches outright, so
       this relies on a small self-hosted relay (see <code>worker/reddit-proxy-worker.js</code>) to fetch pages
       server-side; public CORS proxies are used as a fallback but are frequently down or rate-limited. Without it they'll show
-      an error explaining why. Galleries and quarantined subreddits still aren't supported.
+      an error explaining why. Quarantined subreddits still aren't supported. Gallery posts are
+      unrolled into consecutive slides &mdash; use "Skip gallery" to jump past the rest of one.
     </p>
   </footer>
 

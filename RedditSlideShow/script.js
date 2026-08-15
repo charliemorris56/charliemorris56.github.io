@@ -34,6 +34,9 @@
     slideshow: document.getElementById("slideshow"),
     subTitle: document.getElementById("sub-title"),
     counter: document.getElementById("slide-counter"),
+    galleryBadge: document.getElementById("gallery-badge"),
+    skipGalleryBtn: document.getElementById("skip-gallery-btn"),
+    skipGalleryBtnFs: document.getElementById("skip-gallery-btn-fs"),
     mediaViewport: document.getElementById("media-viewport"),
     mediaContainer: document.getElementById("media-container"),
     prevBtn: document.getElementById("prev-btn"),
@@ -254,6 +257,20 @@
     return videoEl ? videoEl.getAttribute("data-hls-url") : null;
   }
 
+  // Same data-cachedhtml expando mechanism as video posts, but a gallery's
+  // expando instead lists one `a.gallery-item-thumbnail-link[href]` per
+  // image (in gallery order) — each href is a signed, full-size
+  // preview.redd.it URL, directly usable as-is.
+  function extractGalleryImages(thing) {
+    const expando = thing.querySelector(".expando[data-cachedhtml]");
+    const cached = expando ? expando.getAttribute("data-cachedhtml") : null;
+    if (!cached) return [];
+    const innerDoc = new DOMParser().parseFromString(cached, "text/html");
+    return Array.from(innerDoc.querySelectorAll("a.gallery-item-thumbnail-link[href]"))
+      .map((a) => a.getAttribute("href"))
+      .filter(Boolean);
+  }
+
   function parseRedditHtml(html, baseListUrl) {
     const doc = new DOMParser().parseFromString(html, "text/html");
 
@@ -265,6 +282,29 @@
       if (thing.classList.contains("promoted") || thing.classList.contains("stickied")) {
         continue;
       }
+      const permalinkPath = thing.getAttribute("data-permalink");
+      const title = thing.getAttribute("data-title") || "";
+      const permalink = permalinkPath ? `https://old.reddit.com${permalinkPath}` : baseListUrl;
+
+      if (thing.getAttribute("data-is-gallery") === "true") {
+        const images = extractGalleryImages(thing);
+        const galleryId = thing.getAttribute("data-fullname") || permalinkPath;
+        images.forEach((src, idx) => {
+          if (seen.has(src)) return;
+          seen.add(src);
+          items.push({
+            type: "image",
+            src,
+            title,
+            permalink,
+            galleryId,
+            galleryIndex: idx + 1,
+            galleryTotal: images.length,
+          });
+        });
+        continue;
+      }
+
       const dataUrl = thing.getAttribute("data-url");
       let media = extractMediaFromDataUrl(dataUrl);
       if (!media && dataUrl && REDDIT_VIDEO_RE.test(dataUrl)) {
@@ -275,15 +315,7 @@
       if (seen.has(media.src)) continue;
       seen.add(media.src);
 
-      const permalinkPath = thing.getAttribute("data-permalink");
-      const title = thing.getAttribute("data-title") || "";
-
-      items.push({
-        type: media.type,
-        src: media.src,
-        title,
-        permalink: permalinkPath ? `https://old.reddit.com${permalinkPath}` : baseListUrl,
-      });
+      items.push({ type: media.type, src: media.src, title, permalink });
     }
 
     let nextPageUrl = null;
@@ -375,6 +407,23 @@
     els.counter.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
     els.permalink.href = item.permalink;
     els.loadMoreBtn.classList.toggle("hidden", !state.nextPageUrl);
+
+    const inGallery = Boolean(item.galleryId);
+    els.galleryBadge.classList.toggle("hidden", !inGallery);
+    els.skipGalleryBtn.classList.toggle("hidden", !inGallery);
+    els.skipGalleryBtnFs.classList.toggle("hidden", !inGallery);
+    if (inGallery) {
+      els.galleryBadge.textContent = `🖼 Gallery ${item.galleryIndex} / ${item.galleryTotal}`;
+    }
+  }
+
+  function skipGallery() {
+    const item = state.items[state.currentIndex];
+    if (!item || !item.galleryId) return;
+    let i = state.currentIndex;
+    while (i < state.items.length && state.items[i].galleryId === item.galleryId) i++;
+    state.currentIndex = i < state.items.length ? i : 0;
+    renderSlide();
   }
 
   function skipBrokenSlide() {
@@ -548,6 +597,8 @@
 
   els.prevBtn.addEventListener("click", () => goTo(-1));
   els.nextBtn.addEventListener("click", () => goTo(1));
+  els.skipGalleryBtn.addEventListener("click", skipGallery);
+  els.skipGalleryBtnFs.addEventListener("click", skipGallery);
   els.autoplayBtn.addEventListener("click", toggleAutoplay);
 
   function clampSpeed(value) {

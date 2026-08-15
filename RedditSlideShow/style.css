@@ -206,6 +206,26 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.gallery-badge {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 69, 0, 0.15);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#skip-gallery-btn {
+  background: #10131a;
+  border: 1px solid var(--panel-border);
+}
+
+#skip-gallery-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
 .slideshow-actions {
   display: flex;
   align-items: center;
@@ -328,6 +348,33 @@ body {
 
 .media-viewport:fullscreen .exit-fullscreen-btn {
   display: flex;
+}
+
+.skip-gallery-fs-btn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  z-index: 3;
+  display: none;
+  transition: background 0.15s ease;
+}
+
+.skip-gallery-fs-btn:hover { background: rgba(0, 0, 0, 0.75); }
+
+/* Only rendered while genuinely in fullscreen — the header's own Skip
+   gallery button already covers the normal (non-fullscreen) view, and the
+   `.hidden` utility (display:none !important) still wins over this when the
+   current slide isn't part of a gallery. */
+.media-viewport:fullscreen .skip-gallery-fs-btn:not(.hidden) {
+  display: block;
 }
 
 .slideshow-footer {
