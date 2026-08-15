@@ -40,8 +40,10 @@
     nextBtn: document.getElementById("next-btn"),
     autoplayBtn: document.getElementById("autoplay-btn"),
     autoplaySpeed: document.getElementById("autoplay-speed"),
+    autoplaySpeedNumber: document.getElementById("autoplay-speed-number"),
     shareBtn: document.getElementById("share-btn"),
     fullscreenBtn: document.getElementById("fullscreen-btn"),
+    exitFullscreenBtn: document.getElementById("exit-fullscreen-btn"),
     permalink: document.getElementById("permalink"),
     loadMoreBtn: document.getElementById("load-more-btn"),
     sortToggleBtn: document.getElementById("sort-toggle-btn"),
@@ -152,10 +154,13 @@
     }
   }
 
-  // Reddit's own anti-scraping "Blocked" interstitial is structurally valid,
-  // full-length HTML — without this check a proxy serving it looks like a
-  // successful fetch and the chain stops instead of trying the next proxy.
-  const REDDIT_BLOCKED_RE = /<title>\s*Blocked\s*<\/title>/i;
+  // Reddit's anti-scraping responses (a "Blocked" interstitial, or a soft
+  // redirect to the /login/ wall for anonymous traffic it's rate-limiting)
+  // are structurally valid, full-length HTML — without this check a proxy
+  // serving one looks like a successful fetch and the chain stops instead of
+  // trying the next proxy.
+  const REDDIT_BLOCKED_RE =
+    /<title>\s*Blocked\s*<\/title>|Log in or sign up to personalize your feed/i;
 
   async function fetchRedditHtml(targetUrl) {
     let lastError = null;
@@ -473,11 +478,32 @@
   els.prevBtn.addEventListener("click", () => goTo(-1));
   els.nextBtn.addEventListener("click", () => goTo(1));
   els.autoplayBtn.addEventListener("click", toggleAutoplay);
-  els.autoplaySpeed.addEventListener("change", () => {
+
+  function clampSpeed(value) {
+    const min = Number(els.autoplaySpeed.min);
+    const max = Number(els.autoplaySpeed.max);
+    let n = Math.round(Number(value));
+    if (Number.isNaN(n)) n = min;
+    return Math.min(max, Math.max(min, n));
+  }
+  function onSpeedChange() {
     if (state.autoplayTimer) startAutoplay();
+  }
+  els.autoplaySpeed.addEventListener("input", () => {
+    els.autoplaySpeedNumber.value = els.autoplaySpeed.value;
+  });
+  els.autoplaySpeed.addEventListener("change", onSpeedChange);
+  els.autoplaySpeedNumber.addEventListener("input", () => {
+    els.autoplaySpeed.value = clampSpeed(els.autoplaySpeedNumber.value);
+  });
+  els.autoplaySpeedNumber.addEventListener("change", () => {
+    els.autoplaySpeedNumber.value = clampSpeed(els.autoplaySpeedNumber.value);
+    els.autoplaySpeed.value = els.autoplaySpeedNumber.value;
+    onSpeedChange();
   });
   els.shareBtn.addEventListener("click", copyShareLink);
   els.fullscreenBtn.addEventListener("click", toggleFullscreen);
+  els.exitFullscreenBtn.addEventListener("click", () => document.exitFullscreen?.());
   els.loadMoreBtn.addEventListener("click", loadMore);
 
   document.addEventListener("keydown", (e) => {
