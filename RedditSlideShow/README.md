@@ -22,8 +22,8 @@ Files: `index.html`, `style.css`, `script.js` (all the logic), plus an optional
    - `.jpg/.jpeg/.png/.gif/.webp` → shown as an `<img>` (animated GIFs just play natively).
    - imgur `.gifv` → rewritten to the equivalent `.mp4` and shown as a looping muted `<video>`
      (imgur serves an actual video file at that same path).
-   - Anything else (gallery posts, `v.redd.it` video, text posts, link posts) is skipped —
-     see Limitations.
+   - `v.redd.it` → played with real audio via `hls.js` — see "Video posts" below.
+   - Anything else (gallery posts, text posts, link posts) is skipped — see Limitations.
 5. **Render.** The first post becomes the current slide; Prev/Next/autoplay just walk the
    `items` array and re-render.
 
@@ -49,7 +49,9 @@ const PROXIES = [
 ```
 
 `fetchRedditHtml()` tries each in order and falls through on failure. It also actively
-detects several non-obvious "this isn't the real listing" responses — a
+detects several non-obvious "this isn't the real listing" responses — a `Blocked`
+interstitial, a `/login/` redirect, a quarantine notice — and retries the next proxy instead
+of treating any of them as the real listing, even though each arrives as a normal `200 OK`.
 
 **The public proxies (`allorigins.win`, `corsproxy.io`) are free, third-party, and
 consequently unreliable** — they get rate-limited, go down, or get blocked by Reddit
@@ -70,6 +72,23 @@ is not an open proxy.
 3. Copy the resulting `https://<name>.<subdomain>.workers.dev` URL.
 4. Paste it into `WORKER_PROXY_URL` near the top of `script.js`. It's tried first,
    automatically, once set.
+
+## Video posts
+
+`v.redd.it` posts have no playable URL in their own `data-url` (just `https://v.redd.it/<id>`)
+— the actual HLS manifest is pre-rendered as an HTML-escaped HTML fragment in the post's
+sibling `.expando[data-cachedhtml]` attribute (old.reddit's mechanism for instant-expanding
+video without a request). `extractHlsUrl()` unwraps it: read the attribute (the browser undoes
+one layer of escaping), then parse *that string* as HTML again to undo the second layer and
+land on a clean `.m3u8` URL.
+
+Playing it needs `hls.js` (self-hosted in `vendor/hls.min.js`, loaded before `script.js`) since
+no browser except Safari plays HLS natively. `renderSlide()` feeds the manifest to `Hls` via
+`attachMedia`, with a native-HLS fallback (`canPlayType('application/vnd.apple.mpegurl')`) for
+Safari/iOS. Unlike the muted, controls-less gifv treatment, these get real `controls` — they're
+actual videos, not gif-like loops — starting muted (autoplay-with-sound is blocked by every
+browser) with the native controls bar as the way to unmute. Each `Hls` instance is destroyed
+in `renderSlide()` before the next slide renders, cancelling any in-flight segment fetches.
 
 ## URL formats and sharing
 
@@ -112,9 +131,8 @@ out of whatever path actually loaded (even a hand-typed one) so the cog stays tr
 
 ## Known limitations
 
-- **Galleries and `v.redd.it` video are skipped.** Only posts whose `data-url` is a direct
-  image/GIF link are extracted; gallery posts and Reddit-hosted video need extra API calls
-  this tool doesn't make.
+- **Galleries are skipped.** Multi-image gallery posts have no single `data-url` to extract.
+  quarantined subreddits are unsupported regardless (needs a logged-in, opted-in account).
 - **Reliability depends on the proxy in use.** Expect occasional failures on the public
   proxies; the error message always says why (blocked, rate-limited, empty response, etc.)
   and suggests deploying the Worker.

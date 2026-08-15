@@ -60,6 +60,7 @@
     nextPageUrl: null,
     rawInput: null,
     subredditLabel: "",
+    hls: null,
   };
 
   // ---------- input parsing ----------
@@ -223,6 +224,8 @@
 
   // ---------- HTML parsing ----------
 
+  const REDDIT_VIDEO_RE = /^https?:\/\/v\.redd\.it\//i;
+
   function extractMediaFromDataUrl(dataUrl) {
     if (!dataUrl) return null;
     if (IMAGE_RE.test(dataUrl)) {
@@ -232,6 +235,23 @@
       return { type: "video", src: dataUrl.replace(GIFV_RE, ".mp4") };
     }
     return null;
+  }
+
+  // v.redd.it posts carry no playable URL in their own data-url (just
+  // https://v.redd.it/<id>) — the actual HLS manifest is embedded, pre-
+  // rendered, as an HTML-escaped HTML fragment in the post's sibling
+  // `.expando[data-cachedhtml]` attribute (old.reddit's mechanism for
+  // instant-expanding video without an extra request). Reading it out takes
+  // two passes: the browser's own attribute parsing undoes one level of
+  // escaping, leaving a string that still needs parsing *as HTML* itself to
+  // undo the second level and yield a clean, directly-usable manifest URL.
+  function extractHlsUrl(thing) {
+    const expando = thing.querySelector(".expando[data-cachedhtml]");
+    const cached = expando ? expando.getAttribute("data-cachedhtml") : null;
+    if (!cached) return null;
+    const innerDoc = new DOMParser().parseFromString(cached, "text/html");
+    const videoEl = innerDoc.querySelector("[data-hls-url]");
+    return videoEl ? videoEl.getAttribute("data-hls-url") : null;
   }
 
   function parseRedditHtml(html, baseListUrl) {
@@ -246,7 +266,11 @@
         continue;
       }
       const dataUrl = thing.getAttribute("data-url");
-      const media = extractMediaFromDataUrl(dataUrl);
+      let media = extractMediaFromDataUrl(dataUrl);
+      if (!media && dataUrl && REDDIT_VIDEO_RE.test(dataUrl)) {
+        const hlsUrl = extractHlsUrl(thing);
+        if (hlsUrl) media = { type: "hls", src: hlsUrl };
+      }
       if (!media) continue;
       if (seen.has(media.src)) continue;
       seen.add(media.src);
@@ -299,12 +323,39 @@
   }
 
   function renderSlide() {
+    if (state.hls) {
+      state.hls.destroy();
+      state.hls = null;
+    }
+
     const item = state.items[state.currentIndex];
     els.mediaContainer.innerHTML = "";
     if (!item) return;
 
     let el;
-    if (item.type === "video") {
+    if (item.type === "hls") {
+      // A real reddit-hosted video (not a gif-like loop) — full native
+      // controls so the viewer can unmute/seek/pause, unlike the silent
+      // gifv-as-video treatment below. Starts muted because browsers block
+      // unmuted autoplay outright; the controls bar is how audio gets in.
+      el = document.createElement("video");
+      el.autoplay = true;
+      el.loop = true;
+      el.muted = true;
+      el.playsInline = true;
+      el.controls = true;
+      if (window.Hls && window.Hls.isSupported()) {
+        const hls = new window.Hls();
+        hls.loadSource(item.src);
+        hls.attachMedia(el);
+        state.hls = hls;
+      } else if (el.canPlayType("application/vnd.apple.mpegurl")) {
+        el.src = item.src; // Safari/iOS play HLS natively, no library needed
+      } else {
+        skipBrokenSlide();
+        return;
+      }
+    } else if (item.type === "video") {
       el = document.createElement("video");
       el.src = item.src;
       el.autoplay = true;

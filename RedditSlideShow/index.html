@@ -60,7 +60,7 @@
   <main id="status-area" class="status-area">
     <p class="hint">
       Paste a subreddit name, a subreddit path, or a full reddit URL and hit Load.
-      Only image and GIF posts are shown &mdash; no Reddit API is used, the listing page is scraped directly.
+      Only image, GIF, and video posts are shown &mdash; no Reddit API is used, the listing page is scraped directly.
     </p>
   </main>
 
@@ -116,11 +116,11 @@
       Client-side scraper &mdash; no Reddit API involved. Reddit rejects cross-site browser fetches outright, so
       this relies on a small self-hosted relay (see <code>worker/reddit-proxy-worker.js</code>) to fetch pages
       server-side; public CORS proxies are used as a fallback but are frequently down or rate-limited. Without it they'll show
-      an error explaining why. Galleries, Reddit-hosted video (v.redd.it), and quarantined subreddits still aren't
-      supported.
+      an error explaining why. Galleries and quarantined subreddits still aren't supported.
     </p>
   </footer>
 
+<script src="vendor/hls.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
