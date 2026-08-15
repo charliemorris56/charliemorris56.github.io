@@ -195,6 +195,30 @@
     }
     .speed-unit { color: #9aa0aa; font-size: 0.85rem; }
 
+    .sort-control { position: relative; }
+    .icon-btn {
+      padding: 0.55rem 0.7rem; border-radius: 6px; border: 1px solid #2a2e37;
+      background: #10131a; color: #e8eaed; cursor: pointer; font-size: 1.05rem; line-height: 1;
+    }
+    .icon-btn:hover { border-color: #ff4500; }
+    .sort-panel {
+      position: absolute; top: calc(100% + 0.5rem); left: 0; z-index: 10;
+      display: flex; flex-direction: column; gap: 0.6rem; min-width: 180px;
+      padding: 0.85rem; border-radius: 8px; background: #181b21; border: 1px solid #2a2e37;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .sort-panel label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; color: #9aa0aa; }
+    .sort-panel select {
+      padding: 0.4rem 0.5rem; border-radius: 6px; border: 1px solid #2a2e37;
+      background: #10131a; color: #e8eaed; font-size: 0.9rem;
+    }
+    .sort-go-btn {
+      padding: 0.5rem 1rem; border-radius: 6px; border: none; background: #ff4500;
+      color: white; font-weight: 600; cursor: pointer; font-size: 0.9rem;
+    }
+    .sort-go-btn:hover { background: #ff5e1f; }
+    .sort-panel-hint { margin: 0; font-size: 0.72rem; color: #9aa0aa; max-width: 22ch; }
+
     .media-viewport {
       position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
       background: #000; border-radius: 10px; overflow: hidden; border: 1px solid #2a2e37;
@@ -236,9 +260,11 @@
 
     @media (max-width: 640px) {
       .actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-      #autoplay-btn, .speed-control { grid-column: 1 / -1; width: 100%; }
+      #autoplay-btn, .speed-control, .sort-control { grid-column: 1 / -1; width: 100%; }
       .speed-control input[type="range"] { flex: 1; }
       .actions button { width: 100%; }
+      .sort-control .icon-btn { width: 100%; }
+      .sort-panel { left: 0; right: 0; min-width: 0; }
       .nav-arrow { opacity: 1; }
       .slideshow-footer { flex-direction: column; align-items: stretch; gap: 0.5rem; }
       #load-more-btn { width: 100%; }
@@ -260,6 +286,34 @@
           <span id="slide-counter" class="slide-counter"></span>
           <span id="gallery-badge" class="gallery-badge hidden"></span>
           <div class="actions">
+            <div class="sort-control">
+              <button type="button" id="sort-toggle-btn" class="icon-btn" title="Sort settings" aria-haspopup="true" aria-expanded="false">&#9881;</button>
+              <div id="sort-panel" class="sort-panel hidden">
+                <label>
+                  Sort
+                  <select id="sort-select">
+                    <option value="hot">Hot</option>
+                    <option value="new">New</option>
+                    <option value="rising">Rising</option>
+                    <option value="controversial">Controversial</option>
+                    <option value="top">Top</option>
+                  </select>
+                </label>
+                <label id="time-label">
+                  Time
+                  <select id="time-select">
+                    <option value="hour">Hour</option>
+                    <option value="day">Day</option>
+                    <option value="week">Week</option>
+                    <option value="month">Month</option>
+                    <option value="year">Year</option>
+                    <option value="all">All time</option>
+                  </select>
+                </label>
+                <button type="button" id="sort-go-btn" class="sort-go-btn">Go</button>
+                <p class="sort-panel-hint">Reloads the page with the new sort.</p>
+              </div>
+            </div>
             <button id="skip-gallery-btn" class="hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
             <button id="autoplay-btn" type="button" title="Toggle autoplay">▶ Autoplay</button>
             <div class="speed-control">
@@ -313,9 +367,24 @@
     exitFullscreenBtn: shadow.getElementById("exit-fullscreen-btn"),
     permalink: shadow.getElementById("permalink"),
     loadMoreBtn: shadow.getElementById("load-more-btn"),
+    sortToggleBtn: shadow.getElementById("sort-toggle-btn"),
+    sortPanel: shadow.getElementById("sort-panel"),
+    sortSelect: shadow.getElementById("sort-select"),
+    timeLabel: shadow.getElementById("time-label"),
+    timeSelect: shadow.getElementById("time-select"),
+    sortGoBtn: shadow.getElementById("sort-go-btn"),
   };
 
-  const state = { items: [], currentIndex: 0, autoplayTimer: null, nextPageUrl: null, hls: null };
+  const state = {
+    items: [],
+    currentIndex: 0,
+    autoplayActive: false,
+    autoplayTimeoutId: null,
+    autoplayEndedEl: null,
+    autoplayEndedHandler: null,
+    nextPageUrl: null,
+    hls: null,
+  };
 
   // ---------- UI helpers (ported near-verbatim from the fetch-based version) ----------
 
@@ -340,6 +409,7 @@
       state.hls.destroy();
       state.hls = null;
     }
+    clearAutoplayAdvance();
 
     const item = state.items[state.currentIndex];
     els.mediaContainer.innerHTML = "";
@@ -392,6 +462,8 @@
     if (inGallery) {
       els.galleryBadge.textContent = `🖼 Gallery ${item.galleryIndex} / ${item.galleryTotal}`;
     }
+
+    scheduleAutoplayAdvance();
   }
 
   function skipGallery() {
@@ -416,23 +488,65 @@
     renderSlide();
   }
 
-  function stopAutoplay() {
-    if (state.autoplayTimer) {
-      clearInterval(state.autoplayTimer);
-      state.autoplayTimer = null;
+  // Cancels whatever's currently scheduled to advance the slide — either the
+  // fixed-delay timer (images/gifs) or the "wait for this video to finish"
+  // listener (video/hls) — without touching state.autoplayActive itself.
+  // Always safe to call, including when nothing is scheduled.
+  function clearAutoplayAdvance() {
+    if (state.autoplayTimeoutId) {
+      clearTimeout(state.autoplayTimeoutId);
+      state.autoplayTimeoutId = null;
     }
+    if (state.autoplayEndedEl && state.autoplayEndedHandler) {
+      state.autoplayEndedEl.removeEventListener("ended", state.autoplayEndedHandler);
+    }
+    state.autoplayEndedEl = null;
+    state.autoplayEndedHandler = null;
+  }
+
+  // On a video/hls slide, autoplay waits for the clip to actually finish
+  // (loop is turned off for this) instead of advancing after a fixed delay —
+  // static images and actual animated .gif files still use the fixed delay,
+  // since <img> exposes no "this GIF finished playing" signal at all to
+  // hook into. A generous backup timeout guards against autoplay getting
+  // permanently stuck if a video stalls or never fires "ended".
+  function scheduleAutoplayAdvance() {
+    clearAutoplayAdvance();
+    if (!state.autoplayActive) return;
+
+    const item = state.items[state.currentIndex];
+    const videoEl = els.mediaContainer.querySelector("video");
+
+    if (item && (item.type === "video" || item.type === "hls") && videoEl) {
+      videoEl.loop = false;
+      const advance = () => {
+        clearAutoplayAdvance();
+        goTo(1);
+      };
+      videoEl.addEventListener("ended", advance);
+      state.autoplayEndedEl = videoEl;
+      state.autoplayEndedHandler = advance;
+      state.autoplayTimeoutId = setTimeout(advance, 120000);
+    } else {
+      const seconds = Number(els.autoplaySpeed.value) || 5;
+      state.autoplayTimeoutId = setTimeout(() => goTo(1), seconds * 1000);
+    }
+  }
+
+  function stopAutoplay() {
+    state.autoplayActive = false;
+    clearAutoplayAdvance();
     els.autoplayBtn.textContent = "▶ Autoplay";
   }
 
   function startAutoplay() {
-    stopAutoplay();
-    const seconds = Number(els.autoplaySpeed.value) || 5;
-    state.autoplayTimer = setInterval(() => goTo(1), seconds * 1000);
+    state.autoplayActive = true;
     els.autoplayBtn.textContent = "⏸ Pause";
+    scheduleAutoplayAdvance();
   }
 
   function toggleAutoplay() {
-    if (state.autoplayTimer) stopAutoplay();
+    if (state.autoplayActive) stopAutoplay();
     else startAutoplay();
   }
 
@@ -472,8 +586,52 @@
     state.nextPageUrl = nextPageUrl;
     els.subTitle.textContent = subredditLabel ? `r/${subredditLabel}` : "Reddit";
     els.subTitle.href = location.href;
+    syncSortControlsFromLocation();
     showSlideshow(true);
     renderSlide();
+  }
+
+  // Reflects whatever sort/time the current URL actually is, so opening the
+  // cog shows the truth rather than always defaulting to Hot.
+  function currentSubreddit() {
+    const m = location.pathname.match(/^\/r\/([^/]+)/i);
+    return m ? m[1] : null;
+  }
+
+  function updateTimeVisibility() {
+    const show = els.sortSelect.value === "top" || els.sortSelect.value === "controversial";
+    els.timeLabel.classList.toggle("hidden", !show);
+  }
+
+  function syncSortControlsFromLocation() {
+    const sortMatch = location.pathname.match(/^\/r\/[^/]+\/(hot|new|rising|controversial|top)\b/i);
+    els.sortSelect.value = sortMatch ? sortMatch[1].toLowerCase() : "hot";
+    const params = new URLSearchParams(location.search);
+    if (params.has("t")) els.timeSelect.value = params.get("t");
+    updateTimeVisibility();
+  }
+
+  function openSortPanel() {
+    els.sortPanel.classList.remove("hidden");
+    els.sortToggleBtn.setAttribute("aria-expanded", "true");
+  }
+  function closeSortPanel() {
+    els.sortPanel.classList.add("hidden");
+    els.sortToggleBtn.setAttribute("aria-expanded", "false");
+  }
+
+  // "It's ok if it just refreshes the page" — so this is a plain navigation,
+  // not an in-place re-scan. Carries the slideshow=1 marker so the
+  // userscript (if installed) auto-relaunches after the reload instead of
+  // requiring another manual tap; bookmarklet users just need to re-click it.
+  function applySortChange() {
+    const sub = currentSubreddit();
+    if (!sub) return;
+    const sort = els.sortSelect.value;
+    const params = [];
+    if (sort === "top" || sort === "controversial") params.push(`t=${els.timeSelect.value}`);
+    params.push("slideshow=1");
+    window.location.href = `https://old.reddit.com/r/${sub}/${sort}/?${params.join("&")}`;
   }
 
   async function loadMore() {
@@ -513,6 +671,15 @@
   // ---------- events ----------
 
   els.closeBtn.addEventListener("click", closeOverlay);
+  els.sortToggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (els.sortPanel.classList.contains("hidden")) openSortPanel();
+    else closeSortPanel();
+  });
+  els.sortPanel.addEventListener("click", (e) => e.stopPropagation());
+  els.sortSelect.addEventListener("change", updateTimeVisibility);
+  els.sortGoBtn.addEventListener("click", applySortChange);
+  shadow.addEventListener("click", closeSortPanel);
   els.prevBtn.addEventListener("click", () => goTo(-1));
   els.nextBtn.addEventListener("click", () => goTo(1));
   els.skipGalleryBtn.addEventListener("click", skipGallery);
@@ -522,7 +689,7 @@
     els.autoplaySpeedNumber.value = els.autoplaySpeed.value;
   });
   els.autoplaySpeed.addEventListener("change", () => {
-    if (state.autoplayTimer) startAutoplay();
+    if (state.autoplayActive) scheduleAutoplayAdvance();
   });
   els.autoplaySpeedNumber.addEventListener("input", () => {
     els.autoplaySpeed.value = clampSpeed(els.autoplaySpeedNumber.value);
@@ -530,7 +697,7 @@
   els.autoplaySpeedNumber.addEventListener("change", () => {
     els.autoplaySpeedNumber.value = clampSpeed(els.autoplaySpeedNumber.value);
     els.autoplaySpeed.value = els.autoplaySpeedNumber.value;
-    if (state.autoplayTimer) startAutoplay();
+    if (state.autoplayActive) scheduleAutoplayAdvance();
   });
   els.fullscreenBtn.addEventListener("click", toggleFullscreen);
   els.exitFullscreenBtn.addEventListener("click", () => document.exitFullscreen?.());
@@ -539,7 +706,8 @@
   document.addEventListener("keydown", (e) => {
     if (!hostEl.isConnected || els.slideshow.classList.contains("hidden")) return;
     if (e.key === "Escape") {
-      closeOverlay();
+      if (!els.sortPanel.classList.contains("hidden")) closeSortPanel();
+      else closeOverlay();
       return;
     }
     if (e.key === "ArrowLeft") {

@@ -108,7 +108,17 @@ scoped — inherited properties still cross it).
 
 - **Prev / Next** — arrow buttons over the media, `←`/`→` keys, touch swipe. Keydown handling
   calls `stopPropagation()` so old.reddit's own `j`/`k`/arrow shortcuts don't also fire.
-- **Autoplay** — range slider + synced editable number input, 2–15s, Space bar toggles it.
+- **Sort cog (⚙)** — Sort (Hot/New/Rising/Controversial/Top) and, for Top/Controversial, a Time
+  range. Reflects whatever the current URL's sort/time actually is when opened
+  (`syncSortControlsFromLocation()`), not just a Hot default. "Go" is a plain navigation to
+  `https://old.reddit.com/r/<sub>/<sort>/?t=<time>&slideshow=1` — a full page reload, same
+  `slideshow=1` marker as Quick Open, so the userscript auto-relaunches after it if installed.
+- **Autoplay** — range slider + synced editable number input, 2–15s, Space bar toggles it. On
+  a video/HLS slide it waits for the clip to actually finish instead of advancing on the fixed
+  delay — `scheduleAutoplayAdvance()` turns off that `<video>`'s `loop` and advances on its
+  `ended` event, with a 120s backup timeout in case playback stalls and `ended` never fires.
+  Static images and actual animated `.gif` files still use the fixed delay regardless — an
+  `<img>` exposes no "this GIF finished" signal at all, so there's nothing to listen for.
 - **Fullscreen** — expands the media viewport via the Fullscreen API (works fine on a
   shadow-hosted element); a circular ✕ appears top-right, a duplicate "Skip gallery" button
   top-left when relevant, since the rest of the overlay chrome isn't visible in fullscreen.
