@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Reddit Slideshow
 // @namespace    https://charliemorris56.github.io/RedditSlideShow/
-// @version      1.0.0
-// @description  Turns a subreddit listing into an image/GIF/video slideshow, in place. Adds a small floating button; click it to launch.
+// @version      1.1.0
+// @description  Turns a subreddit listing into an image/GIF/video slideshow, in place. Adds a small floating button; click it to launch. Auto-launches if the URL has ?slideshow=1 (see the install page's "Quick open" builder).
 // @author       Charlie Morris
 // @match        https://old.reddit.com/r/*
 // @grant        none
@@ -49,4 +49,18 @@
     "cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.35);";
   btn.addEventListener("click", launch);
   document.body.appendChild(btn);
+
+  // The install page's "Quick open" builder links here with ?slideshow=1 so
+  // arriving from there launches immediately instead of requiring the extra
+  // tap on the floating button above. Only this userscript can do that — a
+  // bookmarklet can't act on a page it just navigated away from, and a plain
+  // link has nothing on the destination page watching for the marker unless
+  // this script is already installed and running.
+  if (/[?&]slideshow=1(&|$)/.test(location.search)) {
+    launch();
+    if (window.history && window.history.replaceState) {
+      var cleanUrl = location.pathname + location.search.replace(/[?&]slideshow=1/, "").replace(/^&/, "?") + location.hash;
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  }
 })();

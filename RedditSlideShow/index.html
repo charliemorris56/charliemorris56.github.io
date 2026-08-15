@@ -27,15 +27,81 @@
         scraper.
       </p>
 
+      <p class="hint">
+        No website &mdash; this one included &mdash; can create a bookmark in your browser for
+        you. That's a deliberate browser security boundary, not a limitation of this tool: if a
+        page could silently install something that runs JS, any malicious site could too. So
+        every option below needs at least one manual step from you the first time.
+      </p>
+
       <div class="install-option">
         <h3>Desktop: bookmarklet</h3>
-        <p>Drag this to your bookmarks bar:</p>
+        <p>Drag this to your bookmarks bar &mdash; one step, no typing:</p>
         <a id="bookmarklet-link" class="bookmarklet-btn" href="#" onclick="return false;">▶ Reddit Slideshow</a>
       </div>
 
       <div class="install-option">
-        <h3>Android: bookmarklet</h3>
-        <p>No drag-and-drop on mobile, so you edit a bookmark's URL instead:</p>
+        <h3>Mobile: recommended &mdash; userscript, no typing</h3>
+        <p>
+          This is the closest thing to "tap and it's installed" on mobile &mdash; the extension
+          reads <a href="reddit-slideshow.user.js">reddit-slideshow.user.js</a> and installs it
+          itself, no copy-pasting a URL anywhere:
+        </p>
+        <ul>
+          <li>
+            <strong>Android</strong> &mdash; install
+            <a href="https://kiwibrowser.com/" target="_blank" rel="noopener">Kiwi Browser</a>,
+            add Tampermonkey from the Chrome Web Store inside it, then open the userscript link
+            above in Kiwi and confirm the install prompt. (Or Firefox for Android + the
+            Violentmonkey add-on, same idea.)
+          </li>
+          <li>
+            <strong>iOS</strong> &mdash; install the free <strong>Userscripts</strong> Safari
+            extension (search the App Store; by quoid), enable it under
+            Settings &rarr; Safari &rarr; Extensions, then open the userscript link above in
+            Safari. Depending on the app version this either installs directly or asks you to
+            paste the script's URL into the extension &mdash; either way, no editing a bookmark.
+          </li>
+        </ul>
+        <p class="hint">
+          Once installed, a small "▶ Slideshow" button appears automatically on every
+          old.reddit.com subreddit page &mdash; nothing left to do after this one-time setup.
+        </p>
+      </div>
+
+      <div class="install-option">
+        <h3>Quick open <span class="hint">(needs the userscript above installed first)</span></h3>
+        <p>
+          Type a subreddit and pick a sort here, and it opens straight into the slideshow &mdash;
+          no separate tap needed once you land on reddit. Without the userscript installed, this
+          just opens the normal subreddit page (still saves you from typing reddit's sort/time
+          URL syntax yourself).
+        </p>
+        <form id="quick-open-form" class="quick-open-form">
+          <input id="qo-sub" type="text" placeholder="subreddit, e.g. memes" autocomplete="off" required>
+          <select id="qo-sort">
+            <option value="hot">Hot</option>
+            <option value="new">New</option>
+            <option value="rising">Rising</option>
+            <option value="controversial">Controversial</option>
+            <option value="top">Top</option>
+          </select>
+          <select id="qo-time" class="hidden">
+            <option value="hour">Hour</option>
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+            <option value="month" selected>Month</option>
+            <option value="year">Year</option>
+            <option value="all">All time</option>
+          </select>
+          <button type="submit" class="bookmarklet-btn qo-submit">Open</button>
+        </form>
+      </div>
+
+      <div class="install-option">
+        <h3>Mobile: fallback &mdash; bookmarklet (no extension, but manual)</h3>
+        <p>If you'd rather not install anything: bookmark any page, then edit that bookmark's saved URL.</p>
+        <p><strong>Android (Chrome):</strong></p>
         <ol>
           <li>Open Chrome, go to any page, tap the ⋮ menu &rarr; <strong>Star / Bookmark this page</strong>.</li>
           <li>Tap ⋮ &rarr; <strong>Bookmarks</strong>, find the one you just made, tap ⋮ next to it &rarr; <strong>Edit</strong>.</li>
@@ -44,40 +110,29 @@
         </ol>
         <p class="hint">
           Some Chrome versions restrict <code>javascript:</code> bookmarks &mdash; if tapping it does
-          nothing, use the userscript route below instead (Kiwi Browser or Firefox).
+          nothing, use the userscript route above instead.
         </p>
-      </div>
-
-      <div class="install-option">
-        <h3>iPhone / iPad: bookmarklet</h3>
+        <p><strong>iPhone / iPad (Safari):</strong></p>
         <ol>
           <li>In Safari, open any page, tap the Share icon &rarr; <strong>Add Bookmark</strong>.</li>
           <li>Tap the Bookmarks icon (open book), find it, swipe left &rarr; <strong>Edit</strong> (or tap Edit).</li>
           <li>Copy the code below, paste it into the <strong>Address</strong> field (replacing what's there), rename it to "Reddit Slideshow", save.</li>
           <li>Browse to a subreddit on <code>old.reddit.com</code> in Safari, open Bookmarks, tap it to run.</li>
         </ol>
-      </div>
-
-      <div class="install-option">
-        <h3>Copy the raw bookmarklet code</h3>
-        <p class="hint">Tap the box to select it all, then copy &mdash; needed for both mobile steps above.</p>
+        <p class="hint">Tap the box below to select it all, then copy:</p>
         <textarea id="bookmarklet-code" class="code-box" readonly rows="3" onclick="this.select()"></textarea>
         <button id="copy-code-btn" type="button" class="bookmarklet-btn copy-btn">Copy</button>
       </div>
 
       <div class="install-option">
-        <h3>Userscript (auto-adds a button on every subreddit)</h3>
+        <h3>Desktop: userscript alternative</h3>
         <p>
           With <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a>
           (or Violentmonkey) installed, open
           <a href="reddit-slideshow.user.js">reddit-slideshow.user.js</a> and it'll offer to
-          install itself. Adds a small "▶ Slideshow" button to every old.reddit.com subreddit
-          page. This is desktop-only in most browsers, but works on mobile too via:
+          install itself &mdash; adds the same "▶ Slideshow" button to every subreddit page,
+          if you'd rather not use the bookmarklet.
         </p>
-        <ul>
-          <li><strong>Android</strong>: <a href="https://kiwibrowser.com/" target="_blank" rel="noopener">Kiwi Browser</a> (supports Chrome extensions &mdash; install Tampermonkey from the Chrome Web Store inside it), or Firefox for Android with the Violentmonkey add-on.</li>
-          <li><strong>iOS</strong>: search the App Store for "Userscripts" (a free Safari extension by quoid) &mdash; enable it in Settings &rarr; Safari &rarr; Extensions, then open the userscript link above in Safari.</li>
-        </ul>
       </div>
     </section>
 
@@ -139,6 +194,32 @@
         codeBox.select();
         done(document.execCommand("copy"));
       }
+    });
+
+    var qoSort = document.getElementById("qo-sort");
+    var qoTime = document.getElementById("qo-time");
+    function updateQoTimeVisibility() {
+      var show = qoSort.value === "top" || qoSort.value === "controversial";
+      qoTime.classList.toggle("hidden", !show);
+    }
+    qoSort.addEventListener("change", updateQoTimeVisibility);
+    updateQoTimeVisibility();
+
+    document.getElementById("quick-open-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var sub = document
+        .getElementById("qo-sub")
+        .value.trim()
+        .replace(/^\/?(r\/)?/i, "")
+        .replace(/\/+$/, "");
+      if (!sub) return;
+      var path = "https://old.reddit.com/r/" + encodeURIComponent(sub) + "/" + qoSort.value + "/";
+      var params = [];
+      if (qoSort.value === "top" || qoSort.value === "controversial") {
+        params.push("t=" + qoTime.value);
+      }
+      params.push("slideshow=1");
+      window.location.href = path + "?" + params.join("&");
     });
   })();
 </script>

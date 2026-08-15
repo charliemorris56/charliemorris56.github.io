@@ -44,6 +44,20 @@ subject to CORS regardless of origin — only reading a `fetch()`/`XHR` response
 this works even though it's pulling from `charliemorris56.github.io` while running on
 `old.reddit.com`. Everything else the tool does from that point on is same-origin.
 
+### Quick open
+
+`index.html` has a small subreddit/sort/time form ("Quick open") that builds a URL like
+`https://old.reddit.com/r/memes/top/?t=week&slideshow=1` and navigates there. The `slideshow=1`
+marker only matters if `reddit-slideshow.user.js` is already installed: on `document-idle` it
+checks `location.search` for that marker and calls `launch()` immediately instead of waiting for
+the floating button to be clicked, then strips the marker via `history.replaceState` so it
+doesn't linger in the address bar. This is the *only* way to get a "type it on this site, land
+already in the slideshow" experience — a plain link can't trigger anything on the page it
+navigates to, and a bookmarklet's execution ends the moment it navigates away, so only something
+already running persistently on every reddit page load (i.e. the userscript) can react to the
+marker. Without the userscript installed, Quick open still works as a plain URL builder — it
+just requires the usual manual bookmarklet tap once you land there.
+
 ## How extraction works
 
 `extractItemsFromDoc(doc, baseUrl)` in `inject.js` walks every `.thing` element (Reddit's
