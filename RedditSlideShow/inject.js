@@ -27,6 +27,11 @@
   const IMAGE_RE = /\.(jpe?g|png|gif|webp)(\?.*)?$/i;
   const GIFV_RE = /\.gifv(\?.*)?$/i;
   const REDDIT_VIDEO_RE = /^https?:\/\/v\.redd\.it\//i;
+  // RedGifs posts are outbound links, not native reddit video — reddit only
+  // ever gives us an iframe pointing back at RedGifs (see extractItemsFromDoc
+  // below for why we can't get a direct .mp4 URL client-side), so these are
+  // rendered as an embedded RedGifs player rather than a <video> we control.
+  const REDGIFS_RE = /^https?:\/\/(?:www\.)?redgifs\.com\/(?:watch|ifr)\/([a-z0-9]+)/i;
 
   // ---------- extraction (unchanged from the fetch-based version — it only
   // ever needed a Document to walk, and a live page IS one) ----------
@@ -107,6 +112,10 @@
         const hlsUrl = extractHlsUrl(thing);
         if (hlsUrl) media = { type: "hls", src: hlsUrl };
       }
+      if (!media && dataUrl) {
+        const redgifsMatch = dataUrl.match(REDGIFS_RE);
+        if (redgifsMatch) media = { type: "iframe", src: `https://www.redgifs.com/ifr/${redgifsMatch[1]}` };
+      }
       if (!media) continue;
       if (seen.has(media.src)) continue;
       seen.add(media.src);
@@ -118,9 +127,13 @@
     const nextLink = doc.querySelector("span.next-button a");
     if (nextLink && nextLink.getAttribute("href")) nextPageUrl = nextLink.getAttribute("href");
 
+    // Subreddit listings have a .redditname; user profiles (/user/<name>/…)
+    // don't — they render the username in #header .pagename instead.
     let subredditLabel = "";
-    const nameEl = doc.querySelector("#header .redditname a, .redditname a");
-    if (nameEl) subredditLabel = nameEl.textContent.trim();
+    const srNameEl = doc.querySelector("#header .redditname a, .redditname a");
+    const userNameEl = doc.querySelector("#header .pagename");
+    if (srNameEl) subredditLabel = `r/${srNameEl.textContent.trim()}`;
+    else if (userNameEl) subredditLabel = `u/${userNameEl.textContent.trim()}`;
 
     return { items, nextPageUrl, subredditLabel };
   }
@@ -225,6 +238,7 @@
     }
     .media-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
     .media-container img, .media-container video { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+    .media-container iframe { width: 100%; height: 100%; border: 0; display: block; }
 
     .nav-arrow {
       position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px;
@@ -442,6 +456,18 @@
       el.muted = true;
       el.playsInline = true;
       el.controls = false;
+    } else if (item.type === "iframe") {
+      // RedGifs: no direct .mp4 URL is reachable client-side (their info API
+      // is CORS-locked to redgifs.com origins), so this embeds their own
+      // player instead. It has its own autoplay/mute/loop, and no "ended"
+      // event we can see from outside the iframe, so autoplay-wait-for-finish
+      // falls back to the fixed-delay timer for these, same as static GIFs.
+      el = document.createElement("iframe");
+      el.src = item.src;
+      el.frameBorder = "0";
+      el.allow = "autoplay; fullscreen";
+      el.allowFullscreen = true;
+      el.referrerPolicy = "no-referrer";
     } else {
       el = document.createElement("img");
       el.src = item.src;
@@ -576,7 +602,7 @@
 
     if (items.length === 0) {
       setStatus(
-        "No image, GIF, video, or gallery posts found on this page. Make sure you're on a subreddit listing page (not a single post), and that it's finished loading.",
+        "No image, GIF, video, or gallery posts found on this page. Make sure you're on a subreddit or user profile listing page (not a single post), and that it's finished loading.",
         true
       );
       return;
@@ -584,18 +610,22 @@
 
     state.items = items;
     state.nextPageUrl = nextPageUrl;
-    els.subTitle.textContent = subredditLabel ? `r/${subredditLabel}` : "Reddit";
+    els.subTitle.textContent = subredditLabel || "Reddit";
     els.subTitle.href = location.href;
     syncSortControlsFromLocation();
     showSlideshow(true);
     renderSlide();
   }
 
-  // Reflects whatever sort/time the current URL actually is, so opening the
-  // cog shows the truth rather than always defaulting to Hot.
-  function currentSubreddit() {
-    const m = location.pathname.match(/^\/r\/([^/]+)/i);
-    return m ? m[1] : null;
+  // Subreddits put sort in the path (/r/pics/top/); user profiles put it in
+  // a query param (/user/name/submitted/?sort=top) instead — there's no
+  // per-sort path for profiles. Everything below branches on this.
+  function currentContext() {
+    const subMatch = location.pathname.match(/^\/r\/([^/]+)/i);
+    if (subMatch) return { kind: "subreddit", name: subMatch[1] };
+    const userMatch = location.pathname.match(/^\/u(?:ser)?\/([^/]+)/i);
+    if (userMatch) return { kind: "user", name: userMatch[1] };
+    return null;
   }
 
   function updateTimeVisibility() {
@@ -603,9 +633,18 @@
     els.timeLabel.classList.toggle("hidden", !show);
   }
 
+  // Reflects whatever sort/time the current URL actually is, so opening the
+  // cog shows the truth rather than always defaulting to Hot.
   function syncSortControlsFromLocation() {
-    const sortMatch = location.pathname.match(/^\/r\/[^/]+\/(hot|new|rising|controversial|top)\b/i);
-    els.sortSelect.value = sortMatch ? sortMatch[1].toLowerCase() : "hot";
+    const ctx = currentContext();
+    if (ctx && ctx.kind === "subreddit") {
+      const sortMatch = location.pathname.match(/^\/r\/[^/]+\/(hot|new|rising|controversial|top)\b/i);
+      els.sortSelect.value = sortMatch ? sortMatch[1].toLowerCase() : "hot";
+    } else {
+      const params = new URLSearchParams(location.search);
+      const sort = (params.get("sort") || "hot").toLowerCase();
+      els.sortSelect.value = ["hot", "new", "rising", "controversial", "top"].includes(sort) ? sort : "hot";
+    }
     const params = new URLSearchParams(location.search);
     if (params.has("t")) els.timeSelect.value = params.get("t");
     updateTimeVisibility();
@@ -625,13 +664,18 @@
   // userscript (if installed) auto-relaunches after the reload instead of
   // requiring another manual tap; bookmarklet users just need to re-click it.
   function applySortChange() {
-    const sub = currentSubreddit();
-    if (!sub) return;
+    const ctx = currentContext();
+    if (!ctx) return;
     const sort = els.sortSelect.value;
     const params = [];
+    if (ctx.kind === "user") params.push(`sort=${sort}`);
     if (sort === "top" || sort === "controversial") params.push(`t=${els.timeSelect.value}`);
     params.push("slideshow=1");
-    window.location.href = `https://old.reddit.com/r/${sub}/${sort}/?${params.join("&")}`;
+    const url =
+      ctx.kind === "subreddit"
+        ? `https://old.reddit.com/r/${ctx.name}/${sort}/?${params.join("&")}`
+        : `https://old.reddit.com/user/${ctx.name}/submitted/?${params.join("&")}`;
+    window.location.href = url;
   }
 
   async function loadMore() {

@@ -21,27 +21,73 @@
       <h2>1. Install</h2>
       <p>
         This isn't a site you paste a subreddit into &mdash; it runs directly on reddit.com
-        itself. Browse to a subreddit, click the button below, and it turns that page into a
-        slideshow in place. That also means NSFW and quarantined subreddits just work if
-        you're logged in and opted in &mdash; it's your own real browser session, not a
-        scraper.
+        itself. Browse to a subreddit or a user's profile, click the button below, and it turns
+        that page into a slideshow in place. That also means NSFW and quarantined subreddits
+        just work if you're logged in and opted in &mdash; it's your own real browser session,
+        not a scraper.
       </p>
 
       <p class="hint">
-        No website &mdash; this one included &mdash; can create a bookmark in your browser for
-        you. That's a deliberate browser security boundary, not a limitation of this tool: if a
-        page could silently install something that runs JS, any malicious site could too. So
-        every option below needs at least one manual step from you the first time.
+        No website &mdash; this one included &mdash; can create a bookmark or install a browser
+        extension for you. That's a deliberate browser security boundary, not a limitation of
+        this tool: if a page could silently install something that runs JS, any malicious site
+        could too. Pick one of the two options below; each needs at least one manual step from
+        you the first time.
       </p>
 
       <div class="install-option">
-        <h3>Desktop: bookmarklet</h3>
+        <h3>Option A: Bookmarklet <span class="hint">(no extension needed)</span></h3>
+        <p>
+          A single bookmark that runs the tool when clicked. Nothing to install beyond a normal
+          browser bookmark &mdash; but on mobile you have to re-click it on every page, since a
+          bookmarklet can't run automatically.
+        </p>
+
+        <h4>Desktop</h4>
         <p>Drag this to your bookmarks bar &mdash; one step, no typing:</p>
         <a id="bookmarklet-link" class="bookmarklet-btn" href="#" onclick="return false;">▶ Reddit Slideshow</a>
+
+        <h4>Mobile (Android / iPhone)</h4>
+        <p>No drag-and-drop on mobile, so instead: bookmark any page, then edit that bookmark's saved URL.</p>
+        <p><strong>Android (Chrome):</strong></p>
+        <ol>
+          <li>Open Chrome, go to any page, tap the ⋮ menu &rarr; <strong>Star / Bookmark this page</strong>.</li>
+          <li>Tap ⋮ &rarr; <strong>Bookmarks</strong>, find the one you just made, tap ⋮ next to it &rarr; <strong>Edit</strong>.</li>
+          <li>Copy the code below, paste it into the bookmark's <strong>URL</strong> field (replacing what's there), rename it to "Reddit Slideshow", save.</li>
+          <li>Browse to a subreddit or profile, open Bookmarks, tap it to run.</li>
+        </ol>
+        <p class="hint">
+          Some Chrome versions restrict <code>javascript:</code> bookmarks &mdash; if tapping it does
+          nothing, use the userscript option instead.
+        </p>
+        <p><strong>iPhone / iPad (Safari):</strong></p>
+        <ol>
+          <li>In Safari, open any page, tap the Share icon &rarr; <strong>Add Bookmark</strong>.</li>
+          <li>Tap the Bookmarks icon (open book), find it, swipe left &rarr; <strong>Edit</strong> (or tap Edit).</li>
+          <li>Copy the code below, paste it into the <strong>Address</strong> field (replacing what's there), rename it to "Reddit Slideshow", save.</li>
+          <li>Browse to a subreddit or profile in Safari, open Bookmarks, tap it to run.</li>
+        </ol>
+        <p class="hint">Tap the box below to select it all, then copy:</p>
+        <textarea id="bookmarklet-code" class="code-box" readonly rows="3" onclick="this.select()"></textarea>
+        <button id="copy-code-btn" type="button" class="bookmarklet-btn copy-btn">Copy</button>
+
+        <p class="hint">
+          Clicked from <code>www.reddit.com</code> (or anywhere else on reddit), the bookmarklet
+          just opens the equivalent <code>old.reddit.com</code> page instead of trying to run
+          there &mdash; that's the only markup it can actually read.
+        </p>
       </div>
 
       <div class="install-option">
-        <h3>Mobile: recommended &mdash; userscript, no typing</h3>
+        <h3>Option B: Userscript / plugin <span class="hint">(recommended on mobile)</span></h3>
+        <p>
+          Installs once via a userscript-runner extension, then adds a small "▶ Slideshow"
+          button automatically to every subreddit and profile page &mdash; no re-clicking a
+          bookmark, and it also works from <code>www.reddit.com</code>, handing you off to the
+          <code>old.reddit.com</code> equivalent and launching automatically once there.
+        </p>
+
+        <h4>Mobile (Android / iOS)</h4>
         <p>
           This is the closest thing to "tap and it's installed" on mobile &mdash; the extension
           reads <a href="reddit-slideshow.user.js">reddit-slideshow.user.js</a> and installs it
@@ -63,14 +109,21 @@
             paste the script's URL into the extension &mdash; either way, no editing a bookmark.
           </li>
         </ul>
-        <p class="hint">
-          Once installed, a small "▶ Slideshow" button appears automatically on every
-          old.reddit.com subreddit page &mdash; nothing left to do after this one-time setup.
-        </p>
-      </div>
 
-      <div class="install-option">
-        <h3>Quick open <span class="hint">(needs the userscript above installed first)</span></h3>
+        <h4>Desktop</h4>
+        <p>
+          With <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a>
+          (or Violentmonkey) installed, open
+          <a href="reddit-slideshow.user.js">reddit-slideshow.user.js</a> and it'll offer to
+          install itself.
+        </p>
+
+        <p class="hint">
+          Once installed, nothing else is needed &mdash; the floating button just appears on
+          every relevant page from then on.
+        </p>
+
+        <h4>Quick open <span class="hint">(needs the userscript installed first)</span></h4>
         <p>
           Type a subreddit and pick a sort here, and it opens straight into the slideshow &mdash;
           no separate tap needed once you land on reddit. Without the userscript installed, this
@@ -97,51 +150,14 @@
           <button type="submit" class="bookmarklet-btn qo-submit">Open</button>
         </form>
       </div>
-
-      <div class="install-option">
-        <h3>Mobile: fallback &mdash; bookmarklet (no extension, but manual)</h3>
-        <p>If you'd rather not install anything: bookmark any page, then edit that bookmark's saved URL.</p>
-        <p><strong>Android (Chrome):</strong></p>
-        <ol>
-          <li>Open Chrome, go to any page, tap the ⋮ menu &rarr; <strong>Star / Bookmark this page</strong>.</li>
-          <li>Tap ⋮ &rarr; <strong>Bookmarks</strong>, find the one you just made, tap ⋮ next to it &rarr; <strong>Edit</strong>.</li>
-          <li>Copy the code below, paste it into the bookmark's <strong>URL</strong> field (replacing what's there), rename it to "Reddit Slideshow", save.</li>
-          <li>Browse to a subreddit on <code>old.reddit.com</code>, open Bookmarks, tap it to run.</li>
-        </ol>
-        <p class="hint">
-          Some Chrome versions restrict <code>javascript:</code> bookmarks &mdash; if tapping it does
-          nothing, use the userscript route above instead.
-        </p>
-        <p><strong>iPhone / iPad (Safari):</strong></p>
-        <ol>
-          <li>In Safari, open any page, tap the Share icon &rarr; <strong>Add Bookmark</strong>.</li>
-          <li>Tap the Bookmarks icon (open book), find it, swipe left &rarr; <strong>Edit</strong> (or tap Edit).</li>
-          <li>Copy the code below, paste it into the <strong>Address</strong> field (replacing what's there), rename it to "Reddit Slideshow", save.</li>
-          <li>Browse to a subreddit on <code>old.reddit.com</code> in Safari, open Bookmarks, tap it to run.</li>
-        </ol>
-        <p class="hint">Tap the box below to select it all, then copy:</p>
-        <textarea id="bookmarklet-code" class="code-box" readonly rows="3" onclick="this.select()"></textarea>
-        <button id="copy-code-btn" type="button" class="bookmarklet-btn copy-btn">Copy</button>
-      </div>
-
-      <div class="install-option">
-        <h3>Desktop: userscript alternative</h3>
-        <p>
-          With <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a>
-          (or Violentmonkey) installed, open
-          <a href="reddit-slideshow.user.js">reddit-slideshow.user.js</a> and it'll offer to
-          install itself &mdash; adds the same "▶ Slideshow" button to every subreddit page,
-          if you'd rather not use the bookmarklet.
-        </p>
-      </div>
     </section>
 
     <section class="card">
       <h2>2. Use it</h2>
       <ol>
-        <li>Browse to any subreddit on <code>old.reddit.com</code> (any sort/time you like &mdash; use reddit's own controls).</li>
+        <li>Browse to any subreddit or user profile (<code>old.reddit.com</code> works directly; <code>www.reddit.com</code> hands off there for you).</li>
         <li>Click the bookmarklet (or the injected "▶ Slideshow" button).</li>
-        <li>Prev/Next, autoplay, fullscreen, gallery skip &mdash; all inline, no page reload.</li>
+        <li>Prev/Next, autoplay, fullscreen, gallery skip, sort &mdash; all inline, no page reload for most of it.</li>
       </ol>
     </section>
 
@@ -165,7 +181,9 @@
   (function () {
     var BASE = "https://charliemorris56.github.io/RedditSlideShow/";
     var src =
-      "javascript:(function(){var B='" + BASE + "';function L(s,c){var e=document.createElement('script');" +
+      "javascript:(function(){if(location.hostname!=='old.reddit.com'){var p=new URLSearchParams(location.search);" +
+      "p.set('slideshow','1');window.location.href='https://old.reddit.com'+location.pathname+'?'+p.toString();return}" +
+      "var B='" + BASE + "';function L(s,c){var e=document.createElement('script');" +
       "e.src=s;e.onload=c;e.onerror=function(){alert('Reddit Slideshow: failed to load '+s)};" +
       "document.body.appendChild(e)}if(window.__redditSlideshowLoaded){window.__redditSlideshowToggle(true);" +
       "return}function C(){L(B+'inject.js?t='+Date.now(),function(){})}if(window.Hls){C()}else{" +

@@ -73,6 +73,14 @@ main {
   margin: 0 0 0.4rem;
 }
 
+.card h4 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: 1.1rem 0 0.4rem;
+}
+
 .card p, .card li {
   line-height: 1.6;
   color: var(--text);

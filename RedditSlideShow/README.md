@@ -1,8 +1,9 @@
 # Reddit Slideshow
 
-A bookmarklet (and userscript) that turns a subreddit listing on `old.reddit.com` into an
-image / GIF / video slideshow, injected directly into the page you're already on. No Reddit
-API, no proxy, no backend.
+A bookmarklet (and userscript) that turns a subreddit or user profile listing on
+`old.reddit.com` into an image / GIF / video slideshow, injected directly into the page you're
+already on. No Reddit API, no proxy, no backend. Works from `www.reddit.com` too — it hands you
+off to the `old.reddit.com` equivalent page first, since that's the only markup it can read.
 
 ## Why a bookmarklet instead of a website
 
@@ -36,13 +37,29 @@ workaround for a problem this architecture doesn't have. See git history for tha
 - **`bookmarklet.js`** — readable source for the bookmarklet; the actual bookmarklet on the
   install page is this same logic minified into a `javascript:` URI.
 - **`reddit-slideshow.user.js`** — a Tampermonkey/Violentmonkey userscript that adds a small
-  "▶ Slideshow" button to every `old.reddit.com/r/*` page, using the same loader logic.
+  "▶ Slideshow" button to every `old.reddit.com/r/*` and `old.reddit.com/user/*` page, plus
+  every `www.reddit.com` page (where it hands off instead — see below), using the same loader
+  logic.
 
-Both the bookmarklet and the userscript do the same thing: load `vendor/hls.min.js` (if not
-already loaded) via `<script src>`, then load `inject.js` the same way. Script tags aren't
-subject to CORS regardless of origin — only reading a `fetch()`/`XHR` response body is — so
-this works even though it's pulling from `charliemorris56.github.io` while running on
-`old.reddit.com`. Everything else the tool does from that point on is same-origin.
+On `old.reddit.com`, both the bookmarklet and the userscript do the same thing: load
+`vendor/hls.min.js` (if not already loaded) via `<script src>`, then load `inject.js` the same
+way. Script tags aren't subject to CORS regardless of origin — only reading a `fetch()`/`XHR`
+response body is — so this works even though it's pulling from `charliemorris56.github.io`
+while running on `old.reddit.com`. Everything else the tool does from that point on is
+same-origin.
+
+### www.reddit.com
+
+`inject.js`'s extraction depends on old.reddit's server-rendered markup (`.thing`,
+`data-cachedhtml`) — none of which exists on the React/web-component markup `www.reddit.com`
+renders instead, so there's nothing for it to read there. Rather than fail silently, both the
+bookmarklet and the userscript check `location.hostname` first: anywhere that isn't
+`old.reddit.com`, they just navigate to the equivalent `old.reddit.com` URL (same path, same
+query string) with `?slideshow=1` appended, instead of trying to run. If the userscript is
+installed, that marker makes it auto-launch the instant the old.reddit.com page loads — so in
+practice, clicking the button on `www.reddit.com` with the userscript installed feels like it
+worked in place. Without the userscript, the bookmarklet's hand-off still saves you a manual
+URL edit; you just need one more click once you land there.
 
 ### Quick open
 
@@ -71,11 +88,33 @@ per-post container in old.reddit's markup) and reads its `data-url` attribute:
 - `data-is-gallery="true"` → each image becomes its own slide (tagged with
   `galleryId`/`galleryIndex`/`galleryTotal`) rather than a nested sub-slideshow. Same
   two-location story as video — see below.
+- `redgifs.com/watch/<id>` (or `/ifr/<id>`) → shown as an embedded RedGifs player, not a
+  `<video>` we control. See "RedGifs" below for why.
 - Anything else (text posts, link posts) is skipped.
 
 This function takes a `Document`, not an HTML string, so the exact same code handles both the
 initial scan (`document`, already live) and "Load more" pagination (a same-origin `fetch()` of
-Reddit's own "next ›" link, parsed via `DOMParser`).
+Reddit's own "next ›" link, parsed via `DOMParser`). It also doesn't care whether that document
+is a subreddit listing or a user profile listing (`/user/<name>/submitted/`) — both use the
+same `.thing`-based template, so the same extraction runs unchanged on either.
+
+### RedGifs
+
+RedGifs posts are outbound links (`data-domain="redgifs.com"`), not native reddit video, so
+there's no `data-hls-url` anywhere for them — old.reddit's own `data-cachedhtml` only ever
+contains an `<iframe src="//www.redditmedia.com/mediaembed/...">`, itself just a wrapper around
+RedGifs' own embed. Getting an actual `.mp4` URL means calling RedGifs' info API
+(`api.redgifs.com/v2/gifs/<id>`), and that API's CORS allowlist only covers `redgifs.com`
+origins — a `fetch()` to it from `old.reddit.com` is blocked before the response body can even
+be read (confirmed directly: the identical request succeeds with `Origin: www.redgifs.com` and
+gets rejected with `Origin: old.reddit.com`). There's no proxy-free way around that from here.
+
+So instead of a `<video>`, RedGifs posts render as an `<iframe src="https://www.redgifs.com/ifr/<id>">`
+— that URL itself *is* embeddable from any origin (no `X-Frame-Options`/CSP block), so this
+needs no API call and no auth token at all. The trade-off: it's RedGifs' own player with its
+own autoplay/mute/loop, and there's no way to observe an "ended" event across the iframe
+boundary, so autoplay-wait-for-video-to-finish (see "Autoplay" below) can't apply to these —
+they use the fixed-delay timer, same as static images and animated GIFs.
 
 ### Video and gallery content live in two different places depending on the page
 
@@ -110,15 +149,19 @@ scoped — inherited properties still cross it).
   calls `stopPropagation()` so old.reddit's own `j`/`k`/arrow shortcuts don't also fire.
 - **Sort cog (⚙)** — Sort (Hot/New/Rising/Controversial/Top) and, for Top/Controversial, a Time
   range. Reflects whatever the current URL's sort/time actually is when opened
-  (`syncSortControlsFromLocation()`), not just a Hot default. "Go" is a plain navigation to
-  `https://old.reddit.com/r/<sub>/<sort>/?t=<time>&slideshow=1` — a full page reload, same
-  `slideshow=1` marker as Quick Open, so the userscript auto-relaunches after it if installed.
+  (`syncSortControlsFromLocation()`), not just a Hot default. "Go" is a plain navigation, same
+  `slideshow=1` marker as Quick Open so the userscript auto-relaunches after it if installed —
+  `https://old.reddit.com/r/<sub>/<sort>/?t=<time>&slideshow=1` on a subreddit, or
+  `https://old.reddit.com/user/<name>/submitted/?sort=<sort>&t=<time>&slideshow=1` on a user
+  profile (sort is a query param there, not a path segment — `currentContext()` branches on
+  which kind of page it is).
 - **Autoplay** — range slider + synced editable number input, 2–15s, Space bar toggles it. On
   a video/HLS slide it waits for the clip to actually finish instead of advancing on the fixed
   delay — `scheduleAutoplayAdvance()` turns off that `<video>`'s `loop` and advances on its
   `ended` event, with a 120s backup timeout in case playback stalls and `ended` never fires.
-  Static images and actual animated `.gif` files still use the fixed delay regardless — an
-  `<img>` exposes no "this GIF finished" signal at all, so there's nothing to listen for.
+  Static images, actual animated `.gif` files, and RedGifs' embedded iframe player all still
+  use the fixed delay regardless — none of them expose an "ended"-equivalent signal we can
+  listen for from outside.
 - **Fullscreen** — expands the media viewport via the Fullscreen API (works fine on a
   shadow-hosted element); a circular ✕ appears top-right, a duplicate "Skip gallery" button
   top-left when relevant, since the rest of the overlay chrome isn't visible in fullscreen.
@@ -134,8 +177,13 @@ the next trigger does a clean rebuild.
 
 ## Known limitations
 
-- Only works on `old.reddit.com` listing pages — the extraction logic depends on markup
-  (`.thing`, `data-cachedhtml`) that doesn't exist on the React-based `www.reddit.com`.
+- Only reads `old.reddit.com` listing pages (subreddits and user profiles) — the extraction
+  logic depends on markup (`.thing`, `data-cachedhtml`) that doesn't exist on the React-based
+  `www.reddit.com`. Both the bookmarklet and the userscript hand off there automatically from
+  anywhere else on reddit, so this mostly isn't user-visible — see "www.reddit.com" above.
+- RedGifs posts play in RedGifs' own embedded iframe player, not a `<video>` this tool
+  controls — no way to pull a direct `.mp4` URL client-side (CORS-blocked API), and no
+  autoplay-wait-for-finish for the same reason. See "RedGifs" above.
 - Quarantined subreddits still need the user to be logged in and opted in on their real Reddit
   account — same as browsing reddit normally, no way around that from any tool.
 - Bookmarklets are fiddly to install on mobile (no drag-and-drop) — see the install page for
