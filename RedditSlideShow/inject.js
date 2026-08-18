@@ -317,7 +317,15 @@
     .permalink { color: #9aa0aa; text-decoration: none; font-size: 0.85rem; }
     .permalink:hover { color: #e8eaed; }
 
-    @media (max-width: 640px) {
+    /* old.reddit.com ships <meta name="viewport" content="width=1024"> — it
+       deliberately forces a fixed desktop-width layout viewport on every
+       mobile browser, so max-width here would never match a real phone
+       (its window.innerWidth genuinely is ~1024, not the physical screen
+       width). max-device-width reads the physical screen instead, so it
+       still fires regardless of the host page's viewport meta. Kept
+       alongside max-width so this still behaves normally on pages (like
+       the landing page) that use a proper width=device-width viewport. */
+    @media (max-width: 640px), (max-device-width: 640px) {
       .close-btn { min-width: 48px; min-height: 48px; padding: 0.3rem 0.6rem; font-size: 1.7rem; }
       .actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
       #autoplay-btn, .speed-control, .sort-control, .search-control { grid-column: 1 / -1; width: 100%; }
@@ -326,7 +334,7 @@
       .speed-number { width: 3.8rem; padding: 0.6rem 0.5rem; font-size: 1rem; }
       .actions button { width: 100%; min-height: 48px; padding: 0.75rem 1rem; font-size: 1rem; }
       .sort-control .icon-btn, .search-control .icon-btn { width: 100%; min-height: 48px; font-size: 1.2rem; }
-      .sort-panel, .search-panel { left: 0; right: 0; width: auto; min-width: 0; }
+      .sort-panel, .search-panel { left: 0; right: 0; width: auto; min-width: 0; max-width: none; }
       .sort-panel select { min-height: 46px; font-size: 1rem; }
       .sort-go-btn { min-height: 46px; font-size: 1rem; }
       .search-input { min-height: 46px; font-size: 1rem; }
