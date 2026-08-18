@@ -61,19 +61,20 @@ practice, clicking the button on `www.reddit.com` with the userscript installed 
 worked in place. Without the userscript, the bookmarklet's hand-off still saves you a manual
 URL edit; you just need one more click once you land there.
 
-### Quick open
+### The `slideshow=1` marker
 
-`index.html` has a small subreddit/sort/time form ("Quick open") that builds a URL like
-`https://old.reddit.com/r/memes/top/?t=week&slideshow=1` and navigates there. The `slideshow=1`
-marker only matters if `reddit-slideshow.user.js` is already installed: on `document-idle` it
-checks `location.search` for that marker and calls `launch()` immediately instead of waiting for
-the floating button to be clicked, then strips the marker via `history.replaceState` so it
-doesn't linger in the address bar. This is the *only* way to get a "type it on this site, land
-already in the slideshow" experience — a plain link can't trigger anything on the page it
-navigates to, and a bookmarklet's execution ends the moment it navigates away, so only something
-already running persistently on every reddit page load (i.e. the userscript) can react to the
-marker. Without the userscript installed, Quick open still works as a plain URL builder — it
-just requires the usual manual bookmarklet tap once you land there.
+Several in-overlay actions that navigate to a new page — the sort cog's "Go", and picking a
+result in subreddit search — append `?slideshow=1` to the destination URL, e.g.
+`https://old.reddit.com/r/memes/top/?t=week&slideshow=1`. That marker only matters if
+`reddit-slideshow.user.js` is already installed: on `document-idle` it checks `location.search`
+for it and calls `launch()` immediately instead of waiting for the floating button to be
+clicked, then strips the marker via `history.replaceState` so it doesn't linger in the address
+bar. This is the *only* way to get a "navigate and land already in the slideshow" experience — a
+plain link can't trigger anything on the page it navigates to, and a bookmarklet's execution
+ends the moment it navigates away, so only something already running persistently on every
+reddit page load (i.e. the userscript) can react to the marker. Without the userscript
+installed, these actions still work as plain navigation — they just leave you on a normal
+listing page, requiring the usual manual bookmarklet tap.
 
 ## How extraction works
 
@@ -149,8 +150,9 @@ scoped — inherited properties still cross it).
   calls `stopPropagation()` so old.reddit's own `j`/`k`/arrow shortcuts don't also fire.
 - **Sort cog (⚙)** — Sort (Hot/New/Rising/Controversial/Top) and, for Top/Controversial, a Time
   range. Reflects whatever the current URL's sort/time actually is when opened
-  (`syncSortControlsFromLocation()`), not just a Hot default. "Go" is a plain navigation, same
-  `slideshow=1` marker as Quick Open so the userscript auto-relaunches after it if installed —
+  (`syncSortControlsFromLocation()`), not just a Hot default. "Go" is a plain navigation, with
+  the same `slideshow=1` marker described above so the userscript auto-relaunches after it if
+  installed —
   `https://old.reddit.com/r/<sub>/<sort>/?t=<time>&slideshow=1` on a subreddit, or
   `https://old.reddit.com/user/<name>/submitted/?sort=<sort>&t=<time>&slideshow=1` on a user
   profile (sort is a query param there, not a path segment — `currentContext()` branches on

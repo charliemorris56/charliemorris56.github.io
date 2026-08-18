@@ -140,50 +140,6 @@ main {
   font: inherit;
 }
 
-.quick-open-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.quick-open-form input[type="text"] {
-  flex: 1;
-  min-width: 160px;
-  padding: 0.55rem 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--panel-border);
-  background: #10131a;
-  color: var(--text);
-  font-size: 0.95rem;
-}
-
-.quick-open-form select {
-  padding: 0.55rem 0.6rem;
-  border-radius: 6px;
-  border: 1px solid var(--panel-border);
-  background: #10131a;
-  color: var(--text);
-  font-size: 0.9rem;
-}
-
-.quick-open-form input[type="text"]:focus,
-.quick-open-form select:focus {
-  outline: 2px solid var(--accent);
-}
-
-.qo-submit {
-  margin: 0;
-  cursor: pointer;
-  border: none;
-  font: inherit;
-}
-
-@media (max-width: 480px) {
-  .quick-open-form { flex-direction: column; align-items: stretch; }
-}
-
 .site-footer {
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--panel-border);
@@ -200,22 +156,11 @@ main {
   main { padding: 0 1rem 1.5rem; }
   .card { padding: 1.1rem; }
   /* iOS Safari auto-zooms on focus for inputs under 16px */
-  .quick-open-form input[type="text"],
-  .quick-open-form select,
   .code-box {
     font-size: 16px;
   }
   .bookmarklet-btn {
     padding: 0.9rem 1.4rem;
     min-height: 48px;
-  }
-  .quick-open-form input[type="text"],
-  .quick-open-form select {
-    min-height: 48px;
-    padding: 0.75rem;
-  }
-  .qo-submit {
-    width: 100%;
-    text-align: center;
   }
 }

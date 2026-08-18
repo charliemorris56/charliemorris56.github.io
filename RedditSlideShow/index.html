@@ -122,33 +122,6 @@
           Once installed, nothing else is needed &mdash; the floating button just appears on
           every relevant page from then on.
         </p>
-
-        <h4>Quick open <span class="hint">(needs the userscript installed first)</span></h4>
-        <p>
-          Type a subreddit and pick a sort here, and it opens straight into the slideshow &mdash;
-          no separate tap needed once you land on reddit. Without the userscript installed, this
-          just opens the normal subreddit page (still saves you from typing reddit's sort/time
-          URL syntax yourself).
-        </p>
-        <form id="quick-open-form" class="quick-open-form">
-          <input id="qo-sub" type="text" placeholder="subreddit, e.g. memes" autocomplete="off" required>
-          <select id="qo-sort">
-            <option value="hot">Hot</option>
-            <option value="new">New</option>
-            <option value="rising">Rising</option>
-            <option value="controversial">Controversial</option>
-            <option value="top">Top</option>
-          </select>
-          <select id="qo-time" class="hidden">
-            <option value="hour">Hour</option>
-            <option value="day">Day</option>
-            <option value="week">Week</option>
-            <option value="month" selected>Month</option>
-            <option value="year">Year</option>
-            <option value="all">All time</option>
-          </select>
-          <button type="submit" class="bookmarklet-btn qo-submit">Open</button>
-        </form>
       </div>
     </section>
 
@@ -212,32 +185,6 @@
         codeBox.select();
         done(document.execCommand("copy"));
       }
-    });
-
-    var qoSort = document.getElementById("qo-sort");
-    var qoTime = document.getElementById("qo-time");
-    function updateQoTimeVisibility() {
-      var show = qoSort.value === "top" || qoSort.value === "controversial";
-      qoTime.classList.toggle("hidden", !show);
-    }
-    qoSort.addEventListener("change", updateQoTimeVisibility);
-    updateQoTimeVisibility();
-
-    document.getElementById("quick-open-form").addEventListener("submit", function (e) {
-      e.preventDefault();
-      var sub = document
-        .getElementById("qo-sub")
-        .value.trim()
-        .replace(/^\/?(r\/)?/i, "")
-        .replace(/\/+$/, "");
-      if (!sub) return;
-      var path = "https://old.reddit.com/r/" + encodeURIComponent(sub) + "/" + qoSort.value + "/";
-      var params = [];
-      if (qoSort.value === "top" || qoSort.value === "controversial") {
-        params.push("t=" + qoTime.value);
-      }
-      params.push("slideshow=1");
-      window.location.href = path + "?" + params.join("&");
     });
   })();
 </script>

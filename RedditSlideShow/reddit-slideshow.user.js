@@ -2,7 +2,7 @@
 // @name         Reddit Slideshow
 // @namespace    https://charliemorris56.github.io/RedditSlideShow/
 // @version      1.2.0
-// @description  Turns a subreddit or user profile listing into an image/GIF/video slideshow, in place. Adds a small floating button; click it to launch. On www.reddit.com it instead hands you off to the old.reddit.com equivalent page, since extraction only works there. Auto-launches if the URL has ?slideshow=1 (see the install page's "Quick open" builder).
+// @description  Turns a subreddit or user profile listing into an image/GIF/video slideshow, in place. Adds a small floating button; click it to launch. On www.reddit.com it instead hands you off to the old.reddit.com equivalent page, since extraction only works there. Auto-launches if the URL has ?slideshow=1 (set by the overlay's sort/search actions, or the www.reddit.com hand-off).
 // @author       Charlie Morris
 // @match        https://old.reddit.com/r/*
 // @match        https://old.reddit.com/user/*
@@ -62,7 +62,7 @@
   btn.addEventListener("click", isOldReddit ? launch : goToOldReddit);
   document.body.appendChild(btn);
 
-  // The install page's "Quick open" builder, and this same script's own
+  // The overlay's sort/search actions, and this same script's own
   // www.reddit.com hand-off above, both link here with ?slideshow=1 so
   // arriving from there launches immediately instead of requiring the extra
   // tap on the floating button. Only this userscript can do that — a
