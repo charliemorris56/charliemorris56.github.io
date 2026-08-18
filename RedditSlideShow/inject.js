@@ -309,19 +309,27 @@
     .permalink:hover { color: #e8eaed; }
 
     @media (max-width: 640px) {
-      .actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+      .close-btn { min-width: 48px; min-height: 48px; padding: 0.3rem 0.6rem; font-size: 1.7rem; }
+      .actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
       #autoplay-btn, .speed-control, .sort-control, .search-control { grid-column: 1 / -1; width: 100%; }
-      .speed-control input[type="range"] { flex: 1; }
-      .actions button { width: 100%; }
-      .sort-control .icon-btn, .search-control .icon-btn { width: 100%; }
+      .speed-control { min-height: 48px; }
+      .speed-control input[type="range"] { flex: 1; height: 32px; }
+      .speed-number { width: 3.8rem; padding: 0.6rem 0.5rem; font-size: 1rem; }
+      .actions button { width: 100%; min-height: 48px; padding: 0.75rem 1rem; font-size: 1rem; }
+      .sort-control .icon-btn, .search-control .icon-btn { width: 100%; min-height: 48px; font-size: 1.2rem; }
       .sort-panel, .search-panel { left: 0; right: 0; width: auto; min-width: 0; }
-      .nav-arrow { opacity: 1; width: 40px; height: 40px; }
-      .nav-arrow-left { left: 6px; }
-      .nav-arrow-right { right: 6px; }
-      .slideshow-footer { flex-direction: column; align-items: stretch; gap: 0.5rem; }
-      #load-more-btn { width: 100%; }
-      .permalink { text-align: center; }
-      .permalink-fs { font-size: 0.78rem; padding: 0.45rem 0.75rem; }
+      .sort-panel select { min-height: 46px; font-size: 1rem; }
+      .sort-go-btn { min-height: 46px; font-size: 1rem; }
+      .search-input { min-height: 46px; font-size: 1rem; }
+      .search-result-item { min-height: 48px; font-size: 0.9rem; }
+      .nav-arrow { opacity: 1; width: 52px; height: 52px; font-size: 1.5rem; }
+      .nav-arrow-left { left: 8px; }
+      .nav-arrow-right { right: 8px; }
+      .exit-fullscreen-btn { width: 48px; height: 48px; font-size: 1.8rem; }
+      .skip-gallery-fs-btn, .permalink-fs { padding: 0.75rem 1rem; font-size: 0.85rem; }
+      .slideshow-footer { flex-direction: column; align-items: stretch; gap: 0.6rem; }
+      #load-more-btn { width: 100%; min-height: 48px; font-size: 1rem; }
+      .permalink { text-align: center; min-height: 44px; display: flex; align-items: center; justify-content: center; }
       .slideshow { padding: 0 0.6rem 0.6rem; }
       .slideshow-header { gap: 0.5rem; padding: 0.4rem 0.15rem; }
     }

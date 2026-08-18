@@ -205,4 +205,17 @@ main {
   .code-box {
     font-size: 16px;
   }
+  .bookmarklet-btn {
+    padding: 0.9rem 1.4rem;
+    min-height: 48px;
+  }
+  .quick-open-form input[type="text"],
+  .quick-open-form select {
+    min-height: 48px;
+    padding: 0.75rem;
+  }
+  .qo-submit {
+    width: 100%;
+    text-align: center;
+  }
 }
