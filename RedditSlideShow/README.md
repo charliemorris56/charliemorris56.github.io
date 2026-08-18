@@ -164,9 +164,18 @@ scoped — inherited properties still cross it).
   listen for from outside.
 - **Fullscreen** — expands the media viewport via the Fullscreen API (works fine on a
   shadow-hosted element); a circular ✕ appears top-right, a duplicate "Skip gallery" button
-  top-left when relevant, since the rest of the overlay chrome isn't visible in fullscreen.
+  top-left, and a "View on Reddit" link bottom-right when relevant, since the rest of the
+  overlay chrome isn't visible in fullscreen.
 - **Gallery badge / Skip gallery** — "🖼 Gallery N / M" badge while on a gallery slide; a
   button that jumps to the first slide whose `galleryId` differs from the current one.
+- **Search subreddits (🔍)** — debounced query against `old.reddit.com/subreddits/search.json`,
+  results re-sorted client-side by subscriber count (formatted as e.g. `1.2M`/`450k`), click a
+  result to navigate straight into it with `slideshow=1`. This has to live here rather than on
+  the landing page for the same CORS reason `loadMore()` does — it's a same-origin fetch only
+  because we're already running on `old.reddit.com`.
+- **Image prefetch** — `preloadUpcoming()` fires off `new Image()` requests for the next two
+  slides (image type only) after every render, so Next/autoplay usually shows an already-cached
+  frame instead of a blank one.
 - **Close (✕, top bar)** — tears the whole overlay down, stops autoplay, destroys any active
   `Hls` instance, exits fullscreen if active.
 

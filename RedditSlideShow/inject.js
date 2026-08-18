@@ -155,13 +155,14 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
     .shell * { box-sizing: border-box; }
+    .shell button, .shell a, .shell input, .shell select { touch-action: manipulation; }
     .hidden { display: none !important; }
 
     .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.6rem 1rem;
+      padding: calc(0.6rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) 0.6rem calc(1rem + env(safe-area-inset-left));
       background: #181b21;
       border-bottom: 1px solid #2a2e37;
     }
@@ -232,9 +233,33 @@
     .sort-go-btn:hover { background: #ff5e1f; }
     .sort-panel-hint { margin: 0; font-size: 0.72rem; color: #9aa0aa; max-width: 22ch; }
 
+    .search-control { position: relative; }
+    .search-panel {
+      position: absolute; top: calc(100% + 0.5rem); right: 0; z-index: 10;
+      display: flex; flex-direction: column; gap: 0.6rem; width: 280px; max-width: 80vw;
+      padding: 0.85rem; border-radius: 8px; background: #181b21; border: 1px solid #2a2e37;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .search-input {
+      padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid #2a2e37;
+      background: #10131a; color: #e8eaed; font-size: 0.9rem; width: 100%;
+    }
+    .search-input:focus { outline: 2px solid #ff4500; }
+    .search-results { display: flex; flex-direction: column; gap: 0.3rem; max-height: 260px; overflow-y: auto; }
+    .search-result-item {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+      padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid #2a2e37; background: #10131a;
+      color: #e8eaed; cursor: pointer; font-size: 0.85rem; text-align: left;
+    }
+    .search-result-item:hover { border-color: #ff4500; }
+    .sr-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sr-subs { color: #9aa0aa; font-size: 0.78rem; white-space: nowrap; }
+    .search-empty { margin: 0; font-size: 0.8rem; color: #9aa0aa; }
+
     .media-viewport {
       position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
       background: #000; border-radius: 10px; overflow: hidden; border: 1px solid #2a2e37;
+      touch-action: pan-y;
     }
     .media-container { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
     .media-container img, .media-container video { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
@@ -252,7 +277,8 @@
     .media-viewport:hover .nav-arrow, .nav-arrow:focus { opacity: 1; }
 
     .exit-fullscreen-btn {
-      position: absolute; top: 14px; right: 14px; width: 40px; height: 40px; border-radius: 50%;
+      position: absolute; top: calc(14px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right));
+      width: 40px; height: 40px; border-radius: 50%;
       border: none; background: rgba(0,0,0,0.45); color: white; font-size: 1.6rem; line-height: 1;
       cursor: pointer; z-index: 3; display: none; align-items: center; justify-content: center;
       transition: background 0.15s ease;
@@ -261,12 +287,22 @@
     .media-viewport:fullscreen .exit-fullscreen-btn { display: flex; }
 
     .skip-gallery-fs-btn {
-      position: absolute; top: 14px; left: 14px; padding: 0.5rem 0.9rem; border-radius: 999px;
+      position: absolute; top: calc(14px + env(safe-area-inset-top)); left: calc(14px + env(safe-area-inset-left));
+      padding: 0.5rem 0.9rem; border-radius: 999px;
       border: none; background: rgba(0,0,0,0.55); color: white; font-weight: 600; font-size: 0.85rem;
       cursor: pointer; z-index: 3; display: none; transition: background 0.15s ease;
     }
     .skip-gallery-fs-btn:hover { background: rgba(0,0,0,0.75); }
     .media-viewport:fullscreen .skip-gallery-fs-btn:not(.hidden) { display: block; }
+
+    .permalink-fs {
+      position: absolute; bottom: calc(14px + env(safe-area-inset-bottom)); right: calc(14px + env(safe-area-inset-right));
+      padding: 0.5rem 0.9rem; border-radius: 999px;
+      background: rgba(0,0,0,0.55); color: white; font-weight: 600; font-size: 0.85rem;
+      text-decoration: none; z-index: 3; display: none; transition: background 0.15s ease;
+    }
+    .permalink-fs:hover { background: rgba(0,0,0,0.75); }
+    .media-viewport:fullscreen .permalink-fs { display: block; }
 
     .slideshow-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 0.25rem; flex-wrap: wrap; }
     .permalink { color: #9aa0aa; text-decoration: none; font-size: 0.85rem; }
@@ -274,15 +310,20 @@
 
     @media (max-width: 640px) {
       .actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-      #autoplay-btn, .speed-control, .sort-control { grid-column: 1 / -1; width: 100%; }
+      #autoplay-btn, .speed-control, .sort-control, .search-control { grid-column: 1 / -1; width: 100%; }
       .speed-control input[type="range"] { flex: 1; }
       .actions button { width: 100%; }
-      .sort-control .icon-btn { width: 100%; }
-      .sort-panel { left: 0; right: 0; min-width: 0; }
-      .nav-arrow { opacity: 1; }
+      .sort-control .icon-btn, .search-control .icon-btn { width: 100%; }
+      .sort-panel, .search-panel { left: 0; right: 0; width: auto; min-width: 0; }
+      .nav-arrow { opacity: 1; width: 40px; height: 40px; }
+      .nav-arrow-left { left: 6px; }
+      .nav-arrow-right { right: 6px; }
       .slideshow-footer { flex-direction: column; align-items: stretch; gap: 0.5rem; }
       #load-more-btn { width: 100%; }
       .permalink { text-align: center; }
+      .permalink-fs { font-size: 0.78rem; padding: 0.45rem 0.75rem; }
+      .slideshow { padding: 0 0.6rem 0.6rem; }
+      .slideshow-header { gap: 0.5rem; padding: 0.4rem 0.15rem; }
     }
   `;
 
@@ -300,6 +341,13 @@
           <span id="slide-counter" class="slide-counter"></span>
           <span id="gallery-badge" class="gallery-badge hidden"></span>
           <div class="actions">
+            <div class="search-control">
+              <button type="button" id="search-toggle-btn" class="icon-btn" title="Search subreddits" aria-haspopup="true" aria-expanded="false">&#128269;</button>
+              <div id="search-panel" class="search-panel hidden">
+                <input type="text" id="search-input" class="search-input" placeholder="Search subreddits…" autocomplete="off">
+                <div id="search-results" class="search-results"></div>
+              </div>
+            </div>
             <div class="sort-control">
               <button type="button" id="sort-toggle-btn" class="icon-btn" title="Sort settings" aria-haspopup="true" aria-expanded="false">&#9881;</button>
               <div id="sort-panel" class="sort-panel hidden">
@@ -344,6 +392,7 @@
           <button id="next-btn" class="nav-arrow nav-arrow-right" type="button" aria-label="Next">&#10095;</button>
           <button id="exit-fullscreen-btn" class="exit-fullscreen-btn" type="button" aria-label="Exit fullscreen" title="Exit fullscreen">&times;</button>
           <button id="skip-gallery-btn-fs" class="skip-gallery-fs-btn hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
+          <a id="permalink-fs" class="permalink-fs" href="#" target="_blank" rel="noopener" title="View post on Reddit">View on Reddit ↗</a>
         </div>
         <div class="slideshow-footer">
           <a id="permalink" class="permalink" href="#" target="_blank" rel="noopener">View post on Reddit ↗</a>
@@ -380,6 +429,7 @@
     fullscreenBtn: shadow.getElementById("fullscreen-btn"),
     exitFullscreenBtn: shadow.getElementById("exit-fullscreen-btn"),
     permalink: shadow.getElementById("permalink"),
+    permalinkFs: shadow.getElementById("permalink-fs"),
     loadMoreBtn: shadow.getElementById("load-more-btn"),
     sortToggleBtn: shadow.getElementById("sort-toggle-btn"),
     sortPanel: shadow.getElementById("sort-panel"),
@@ -387,6 +437,10 @@
     timeLabel: shadow.getElementById("time-label"),
     timeSelect: shadow.getElementById("time-select"),
     sortGoBtn: shadow.getElementById("sort-go-btn"),
+    searchToggleBtn: shadow.getElementById("search-toggle-btn"),
+    searchPanel: shadow.getElementById("search-panel"),
+    searchInput: shadow.getElementById("search-input"),
+    searchResults: shadow.getElementById("search-results"),
   };
 
   const state = {
@@ -479,6 +533,7 @@
 
     els.counter.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
     els.permalink.href = item.permalink;
+    els.permalinkFs.href = item.permalink;
     els.loadMoreBtn.classList.toggle("hidden", !state.nextPageUrl);
 
     const inGallery = Boolean(item.galleryId);
@@ -490,6 +545,20 @@
     }
 
     scheduleAutoplayAdvance();
+    preloadUpcoming();
+  }
+
+  // Warms the browser's own cache for the next couple of image slides so
+  // Next/autoplay shows them instantly instead of popping in a blank frame.
+  function preloadUpcoming() {
+    if (state.items.length < 2) return;
+    for (let offset = 1; offset <= 2; offset++) {
+      const upcoming = state.items[(state.currentIndex + offset) % state.items.length];
+      if (upcoming && upcoming.type === "image") {
+        const img = new Image();
+        img.src = upcoming.src;
+      }
+    }
   }
 
   function skipGallery() {
@@ -659,6 +728,76 @@
     els.sortToggleBtn.setAttribute("aria-expanded", "false");
   }
 
+  function openSearchPanel() {
+    els.searchPanel.classList.remove("hidden");
+    els.searchToggleBtn.setAttribute("aria-expanded", "true");
+    els.searchInput.focus();
+  }
+  function closeSearchPanel() {
+    els.searchPanel.classList.add("hidden");
+    els.searchToggleBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function formatSubscribers(n) {
+    if (typeof n !== "number") return "";
+    if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+    if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, "") + "k";
+    return String(n);
+  }
+
+  function renderSearchResults(subs) {
+    els.searchResults.innerHTML = "";
+    if (!subs.length) {
+      els.searchResults.innerHTML = '<p class="search-empty">No subreddits found.</p>';
+      return;
+    }
+    subs.forEach((sr) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "search-result-item";
+      btn.innerHTML =
+        `<span class="sr-name">r/${sr.display_name}</span>` +
+        `<span class="sr-subs">${formatSubscribers(sr.subscribers)} members</span>`;
+      btn.addEventListener("click", () => {
+        window.location.href = `https://old.reddit.com/r/${encodeURIComponent(sr.display_name)}/hot/?slideshow=1`;
+      });
+      els.searchResults.appendChild(btn);
+    });
+  }
+
+  let searchAbortController = null;
+  let searchDebounceId = null;
+
+  // Same-origin fetch (we're running on old.reddit.com itself) — the same
+  // reason loadMore() above needs no proxy. This is why subreddit search
+  // has to live inside the injected overlay rather than on the landing
+  // page: reddit.com won't answer this request cross-origin.
+  async function runSubredditSearch(query) {
+    if (searchAbortController) searchAbortController.abort();
+    if (!query || query.length < 2) {
+      els.searchResults.innerHTML = "";
+      return;
+    }
+    searchAbortController = new AbortController();
+    els.searchResults.innerHTML = '<p class="search-empty">Searching…</p>';
+    try {
+      const res = await fetch(
+        `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=15`,
+        { signal: searchAbortController.signal }
+      );
+      if (!res.ok) throw new Error("search failed");
+      const data = await res.json();
+      const subs = (data && data.data && data.data.children ? data.data.children : [])
+        .map((c) => c.data)
+        .filter((d) => d && d.display_name)
+        .sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0));
+      renderSearchResults(subs);
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      els.searchResults.innerHTML = '<p class="search-empty">Search failed. Try again.</p>';
+    }
+  }
+
   // "It's ok if it just refreshes the page" — so this is a plain navigation,
   // not an in-place re-scan. Carries the slideshow=1 marker so the
   // userscript (if installed) auto-relaunches after the reload instead of
@@ -717,13 +856,31 @@
   els.closeBtn.addEventListener("click", closeOverlay);
   els.sortToggleBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    if (els.sortPanel.classList.contains("hidden")) openSortPanel();
-    else closeSortPanel();
+    if (els.sortPanel.classList.contains("hidden")) {
+      closeSearchPanel();
+      openSortPanel();
+    } else closeSortPanel();
   });
   els.sortPanel.addEventListener("click", (e) => e.stopPropagation());
   els.sortSelect.addEventListener("change", updateTimeVisibility);
   els.sortGoBtn.addEventListener("click", applySortChange);
-  shadow.addEventListener("click", closeSortPanel);
+  els.searchToggleBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (els.searchPanel.classList.contains("hidden")) {
+      closeSortPanel();
+      openSearchPanel();
+    } else closeSearchPanel();
+  });
+  els.searchPanel.addEventListener("click", (e) => e.stopPropagation());
+  els.searchInput.addEventListener("input", () => {
+    clearTimeout(searchDebounceId);
+    const query = els.searchInput.value.trim();
+    searchDebounceId = setTimeout(() => runSubredditSearch(query), 350);
+  });
+  shadow.addEventListener("click", () => {
+    closeSortPanel();
+    closeSearchPanel();
+  });
   els.prevBtn.addEventListener("click", () => goTo(-1));
   els.nextBtn.addEventListener("click", () => goTo(1));
   els.skipGalleryBtn.addEventListener("click", skipGallery);
@@ -751,6 +908,7 @@
     if (!hostEl.isConnected || els.slideshow.classList.contains("hidden")) return;
     if (e.key === "Escape") {
       if (!els.sortPanel.classList.contains("hidden")) closeSortPanel();
+      else if (!els.searchPanel.classList.contains("hidden")) closeSearchPanel();
       else closeOverlay();
       return;
     }
