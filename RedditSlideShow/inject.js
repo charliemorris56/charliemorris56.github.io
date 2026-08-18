@@ -245,6 +245,15 @@
       background: #10131a; color: #e8eaed; font-size: 0.9rem; width: 100%;
     }
     .search-input:focus { outline: 2px solid #ff4500; }
+    .search-strict-label {
+      display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: #9aa0aa;
+      cursor: pointer; user-select: none;
+    }
+    .search-strict-label input[type="checkbox"] { accent-color: #ff4500; margin: 0; }
+    .sr-restricted-tag {
+      background: rgba(255,69,0,0.2); color: #ff4500; border-radius: 4px;
+      padding: 0.05rem 0.35rem; font-size: 0.7rem; font-weight: 700; margin-right: 0.35rem;
+    }
     .search-results { display: flex; flex-direction: column; gap: 0.3rem; max-height: 260px; overflow-y: auto; }
     .search-result-item {
       display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -353,6 +362,10 @@
               <button type="button" id="search-toggle-btn" class="icon-btn" title="Search subreddits" aria-haspopup="true" aria-expanded="false">&#128269;</button>
               <div id="search-panel" class="search-panel hidden">
                 <input type="text" id="search-input" class="search-input" placeholder="Search subreddits…" autocomplete="off">
+                <label class="search-strict-label">
+                  <input type="checkbox" id="search-strict" checked>
+                  Strict (name must contain search)
+                </label>
                 <div id="search-results" class="search-results"></div>
               </div>
             </div>
@@ -448,6 +461,7 @@
     searchToggleBtn: shadow.getElementById("search-toggle-btn"),
     searchPanel: shadow.getElementById("search-panel"),
     searchInput: shadow.getElementById("search-input"),
+    searchStrict: shadow.getElementById("search-strict"),
     searchResults: shadow.getElementById("search-results"),
   };
 
@@ -764,7 +778,7 @@
       btn.type = "button";
       btn.className = "search-result-item";
       btn.innerHTML =
-        `<span class="sr-name">r/${sr.display_name}</span>` +
+        `<span class="sr-name">${sr.over18 ? '<span class="sr-restricted-tag">Restricted</span>' : ""}r/${sr.display_name}</span>` +
         `<span class="sr-subs">${formatSubscribers(sr.subscribers)} members</span>`;
       btn.addEventListener("click", () => {
         window.location.href = `https://old.reddit.com/r/${encodeURIComponent(sr.display_name)}/hot/?slideshow=1`;
@@ -789,15 +803,21 @@
     searchAbortController = new AbortController();
     els.searchResults.innerHTML = '<p class="search-empty">Searching…</p>';
     try {
+      // include_over_18=on: without it reddit silently drops restricted
+      // subreddits from search results regardless of the account's own
+      // content prefs.
       const res = await fetch(
-        `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=15`,
+        `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=25&include_over_18=on`,
         { signal: searchAbortController.signal }
       );
       if (!res.ok) throw new Error("search failed");
       const data = await res.json();
+      const strict = els.searchStrict.checked;
+      const needle = query.toLowerCase();
       const subs = (data && data.data && data.data.children ? data.data.children : [])
         .map((c) => c.data)
         .filter((d) => d && d.display_name)
+        .filter((d) => !strict || d.display_name.toLowerCase().includes(needle))
         .sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0));
       renderSearchResults(subs);
     } catch (err) {
@@ -884,6 +904,9 @@
     clearTimeout(searchDebounceId);
     const query = els.searchInput.value.trim();
     searchDebounceId = setTimeout(() => runSubredditSearch(query), 350);
+  });
+  els.searchStrict.addEventListener("change", () => {
+    runSubredditSearch(els.searchInput.value.trim());
   });
   shadow.addEventListener("click", () => {
     closeSortPanel();

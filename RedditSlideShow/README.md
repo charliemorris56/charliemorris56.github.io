@@ -168,10 +168,14 @@ scoped — inherited properties still cross it).
   overlay chrome isn't visible in fullscreen.
 - **Gallery badge / Skip gallery** — "🖼 Gallery N / M" badge while on a gallery slide; a
   button that jumps to the first slide whose `galleryId` differs from the current one.
-- **Search subreddits (🔍)** — debounced query against `old.reddit.com/subreddits/search.json`,
-  results re-sorted client-side by subscriber count (formatted as e.g. `1.2M`/`450k`), click a
-  result to navigate straight into it with `slideshow=1`. This has to live here rather than on
-  the landing page for the same CORS reason `loadMore()` does — it's a same-origin fetch only
+- **Search subreddits (🔍)** — debounced query against `old.reddit.com/subreddits/search.json`
+  (fetched with `include_over_18=on` so restricted subreddits aren't silently dropped regardless
+  of the account's content prefs), results re-sorted client-side by subscriber count (formatted
+  as e.g. `1.2M`/`450k`), click a result to navigate straight into it with `slideshow=1`. A
+  "Strict" checkbox (on by default) filters results client-side to only those whose name
+  actually contains the query — off, reddit's own relevance search can surface subs whose
+  *name* doesn't match at all (only their description does). This has to live here rather than
+  on the landing page for the same CORS reason `loadMore()` does — it's a same-origin fetch only
   because we're already running on `old.reddit.com`.
 - **Image prefetch** — `preloadUpcoming()` fires off `new Image()` requests for the next two
   slides (image type only) after every render, so Next/autoplay usually shows an already-cached
