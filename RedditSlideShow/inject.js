@@ -328,7 +328,7 @@
     @media (max-width: 640px), (max-device-width: 640px) {
       .close-btn { min-width: 48px; min-height: 48px; padding: 0.3rem 0.6rem; font-size: 1.7rem; }
       .actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-      #autoplay-btn, .speed-control, .sort-control, .search-control { grid-column: 1 / -1; width: 100%; }
+      .speed-control { grid-column: 1 / -1; width: 100%; }
       .speed-control { min-height: 48px; }
       .speed-control input[type="range"] { flex: 1; height: 32px; }
       .speed-number { width: 3.8rem; padding: 0.6rem 0.5rem; font-size: 1rem; }
