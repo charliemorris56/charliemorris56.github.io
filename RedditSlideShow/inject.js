@@ -314,7 +314,12 @@
     .media-viewport:fullscreen .permalink-fs { display: block; }
 
     .slideshow-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 0.25rem; flex-wrap: wrap; }
-    .permalink { color: #9aa0aa; text-decoration: none; font-size: 0.85rem; }
+    .post-info { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1; }
+    .post-title {
+      color: #e8eaed; font-size: 0.85rem; font-weight: 600; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+    }
+    .permalink { color: #9aa0aa; text-decoration: none; font-size: 0.85rem; white-space: nowrap; }
     .permalink:hover { color: #e8eaed; }
 
     /* old.reddit.com ships <meta name="viewport" content="width=1024"> — it
@@ -354,7 +359,9 @@
       .skip-gallery-fs-btn, .permalink-fs { padding: 0.75rem 1rem; font-size: 0.85rem; }
       .slideshow-footer { flex-direction: column; align-items: stretch; gap: 0.6rem; }
       #load-more-btn { width: 100%; min-height: 48px; font-size: 1rem; }
-      .permalink { text-align: center; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+      .post-info { flex-direction: column; gap: 0.2rem; width: 100%; text-align: center; }
+      .post-title { white-space: normal; max-height: 2.8em; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+      .permalink { min-height: 44px; display: flex; align-items: center; justify-content: center; }
       .slideshow { padding: 0 0.6rem 0.6rem; }
       .slideshow-header { gap: 0.5rem; padding: 0.4rem 0.15rem; }
     }
@@ -432,7 +439,10 @@
           <a id="permalink-fs" class="permalink-fs" href="#" target="_blank" rel="noopener" title="View post on Reddit">View on Reddit ↗</a>
         </div>
         <div class="slideshow-footer">
-          <a id="permalink" class="permalink" href="#" target="_blank" rel="noopener">View post on Reddit ↗</a>
+          <div class="post-info">
+            <span id="post-title" class="post-title"></span>
+            <a id="permalink" class="permalink" href="#" target="_blank" rel="noopener">View post on Reddit ↗</a>
+          </div>
           <button id="load-more-btn" class="hidden" type="button">Load more posts</button>
         </div>
       </section>
@@ -465,6 +475,7 @@
     autoplaySpeedNumber: shadow.getElementById("autoplay-speed-number"),
     fullscreenBtn: shadow.getElementById("fullscreen-btn"),
     exitFullscreenBtn: shadow.getElementById("exit-fullscreen-btn"),
+    postTitle: shadow.getElementById("post-title"),
     permalink: shadow.getElementById("permalink"),
     permalinkFs: shadow.getElementById("permalink-fs"),
     loadMoreBtn: shadow.getElementById("load-more-btn"),
@@ -570,6 +581,8 @@
     els.mediaContainer.appendChild(el);
 
     els.counter.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
+    els.postTitle.textContent = item.title || "";
+    els.postTitle.title = item.title || "";
     els.permalink.href = item.permalink;
     els.permalinkFs.href = item.permalink;
     els.loadMoreBtn.classList.toggle("hidden", !state.nextPageUrl);
@@ -806,6 +819,57 @@
   let searchAbortController = null;
   let searchDebounceId = null;
 
+  // search_reddit_names.json substring-matches the subreddit *name* itself
+  // (confirmed: query=ota returns DotA2, which the relevance search below
+  // never does) but hard-caps at exactly 10 results no matter the query —
+  // confirmed against "cat"/"pic"/"game", all capped at 10 with no limit
+  // param honored — so on any broad query it silently drops most matches
+  // (74 unique name-matching subs actually exist for "cat"; this endpoint
+  // alone surfaces 10 of them). Recovered by also running
+  // subreddits/search.json (relevance search, but accepts limit=100 and
+  // returns full subscriber data already attached) and keeping only the
+  // results that are themselves a name substring match. Whatever
+  // search_reddit_names.json found that ISN'T already covered by that gets
+  // its subscriber count filled in via one batched /api/info.json call.
+  async function strictSubredditSearch(query, signal) {
+    const needle = query.toLowerCase();
+    const [namesRes, relRes] = await Promise.all([
+      fetch(
+        `https://old.reddit.com/api/search_reddit_names.json?query=${encodeURIComponent(query)}&include_over_18=true&exact=false`,
+        { signal }
+      ),
+      fetch(
+        `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=100&include_over_18=on`,
+        { signal }
+      ),
+    ]);
+    if (!namesRes.ok || !relRes.ok) throw new Error("search failed");
+    const namesData = await namesRes.json();
+    const relData = await relRes.json();
+
+    const relMatches = (relData && relData.data && relData.data.children ? relData.data.children : [])
+      .map((c) => c.data)
+      .filter((d) => d && d.display_name && d.display_name.toLowerCase().includes(needle));
+
+    const covered = new Set(relMatches.map((d) => d.display_name.toLowerCase()));
+    const names = (namesData && namesData.names) || [];
+    const extraNames = names.filter((n) => !covered.has(n.toLowerCase()));
+
+    let extraSubs = [];
+    if (extraNames.length) {
+      const infoRes = await fetch(
+        `https://old.reddit.com/api/info.json?sr_name=${encodeURIComponent(extraNames.join(","))}`,
+        { signal }
+      );
+      if (infoRes.ok) {
+        const infoData = await infoRes.json();
+        extraSubs = (infoData && infoData.data && infoData.data.children ? infoData.data.children : []).map((c) => c.data);
+      }
+    }
+
+    return [...relMatches, ...extraSubs];
+  }
+
   // Same-origin fetch (we're running on old.reddit.com itself) — the same
   // reason loadMore() above needs no proxy. This is why subreddit search
   // has to live inside the injected overlay rather than on the landing
@@ -817,24 +881,25 @@
       return;
     }
     searchAbortController = new AbortController();
+    const signal = searchAbortController.signal;
     els.searchResults.innerHTML = '<p class="search-empty">Searching…</p>';
     try {
-      // include_over_18=on: without it reddit silently drops restricted
-      // subreddits from search results regardless of the account's own
-      // content prefs.
-      const res = await fetch(
-        `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=25&include_over_18=on`,
-        { signal: searchAbortController.signal }
-      );
-      if (!res.ok) throw new Error("search failed");
-      const data = await res.json();
-      const strict = els.searchStrict.checked;
-      const needle = query.toLowerCase();
-      const subs = (data && data.data && data.data.children ? data.data.children : [])
-        .map((c) => c.data)
-        .filter((d) => d && d.display_name)
-        .filter((d) => !strict || d.display_name.toLowerCase().includes(needle))
-        .sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0));
+      let subs;
+      if (els.searchStrict.checked) {
+        subs = await strictSubredditSearch(query, signal);
+      } else {
+        // include_over_18=on: without it reddit silently drops restricted
+        // subreddits from results regardless of the account's own content
+        // prefs.
+        const res = await fetch(
+          `https://old.reddit.com/subreddits/search.json?q=${encodeURIComponent(query)}&limit=25&include_over_18=on`,
+          { signal }
+        );
+        if (!res.ok) throw new Error("search failed");
+        const data = await res.json();
+        subs = (data && data.data && data.data.children ? data.data.children : []).map((c) => c.data);
+      }
+      subs = subs.filter((d) => d && d.display_name).sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0));
       renderSearchResults(subs);
     } catch (err) {
       if (err.name === "AbortError") return;

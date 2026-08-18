@@ -170,15 +170,24 @@ scoped — inherited properties still cross it).
   overlay chrome isn't visible in fullscreen.
 - **Gallery badge / Skip gallery** — "🖼 Gallery N / M" badge while on a gallery slide; a
   button that jumps to the first slide whose `galleryId` differs from the current one.
-- **Search subreddits (🔍)** — debounced query against `old.reddit.com/subreddits/search.json`
-  (fetched with `include_over_18=on` so restricted subreddits aren't silently dropped regardless
-  of the account's content prefs), results re-sorted client-side by subscriber count (formatted
-  as e.g. `1.2M`/`450k`), click a result to navigate straight into it with `slideshow=1`. A
-  "Strict" checkbox (on by default) filters results client-side to only those whose name
-  actually contains the query — off, reddit's own relevance search can surface subs whose
-  *name* doesn't match at all (only their description does). This has to live here rather than
-  on the landing page for the same CORS reason `loadMore()` does — it's a same-origin fetch only
-  because we're already running on `old.reddit.com`.
+- **Search subreddits (🔍)** — debounced, results sorted by subscriber count (formatted as e.g.
+  `1.2M`/`450k`), click a result to navigate straight into it with `slideshow=1`. Unchecking
+  "Strict" (on by default) hits `old.reddit.com/subreddits/search.json` alone — reddit's
+  relevance/topic search, fetched with `include_over_18=on` so restricted subreddits aren't
+  silently dropped, but it can surface subs whose *name* doesn't contain the query at all (only
+  their description does), and can just as easily omit a real name match. Strict mode
+  (`strictSubredditSearch()`) instead merges two sources: `subreddits/search.json` itself
+  (`limit=100`, kept only where `display_name` actually contains the query) plus
+  `api/search_reddit_names.json`, which substring-matches the name directly (confirmed: query
+  `ota` returns `DotA2`, which the relevance endpoint never returns at all) — but hard-caps at
+  exactly 10 results with no way to ask for more (confirmed against `cat`/`pic`/`game`, all
+  capped at 10 regardless of params, even though e.g. 74 unique name-matching subreddits exist
+  for `cat`). Whichever of those 10 names isn't already covered by the relevance search gets its
+  subscriber count filled in via one batched `api/info.json?sr_name=a,b,c` call. This has to
+  live here rather than on the landing page for the same CORS reason `loadMore()` does — it's a
+  same-origin fetch only because we're already running on `old.reddit.com` (confirmed:
+  `www.reddit.com`'s own search API is unreachable from here — blocked outright by CORS, same as
+  the rest of `www.reddit.com`).
 - **Image prefetch** — `preloadUpcoming()` fires off `new Image()` requests for the next two
   slides (image type only) after every render, so Next/autoplay usually shows an already-cached
   frame instead of a blank one.
