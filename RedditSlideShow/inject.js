@@ -328,8 +328,16 @@
     @media (max-width: 640px), (max-device-width: 640px) {
       .close-btn { min-width: 48px; min-height: 48px; padding: 0.3rem 0.6rem; font-size: 1.7rem; }
       .actions { width: 100%; margin-left: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-      .speed-control { grid-column: 1 / -1; width: 100%; }
-      .speed-control { min-height: 48px; }
+      /* Explicit pairing regardless of markup order: search+sort, then
+         autoplay+speed, then skip gallery+fullscreen. skip-gallery-btn is
+         hidden outside galleries, so when absent fullscreen just ends up
+         alone in its row instead of paired. */
+      .search-control { order: 1; }
+      .sort-control { order: 2; }
+      #autoplay-btn { order: 3; }
+      .speed-control { order: 4; width: 100%; min-height: 48px; }
+      #skip-gallery-btn { order: 5; }
+      #fullscreen-btn { order: 6; }
       .speed-control input[type="range"] { flex: 1; height: 32px; }
       .speed-number { width: 3.8rem; padding: 0.6rem 0.5rem; font-size: 1rem; }
       .actions button { width: 100%; min-height: 48px; padding: 0.75rem 1rem; font-size: 1rem; }
