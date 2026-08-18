@@ -188,6 +188,17 @@ scoped — inherited properties still cross it).
   same-origin fetch only because we're already running on `old.reddit.com` (confirmed:
   `www.reddit.com`'s own search API is unreachable from here — blocked outright by CORS, same as
   the rest of `www.reddit.com`).
+
+  `ensureExactMatch()` covers a further gap in *both* modes: reddit's search endpoints can omit
+  a subreddit even when the query is its exact literal name — confirmed against a real,
+  non-quarantined, multi-million-subscriber restricted subreddit that neither
+  `subreddits/search.json` nor `search_reddit_names.json` returns for a query matching its name
+  exactly, even though a direct `api/info.json?sr_name=<name>` lookup finds it instantly (tested
+  logged out, so this isn't an account/content-pref thing — reddit's search index itself appears
+  to suppress certain high-profile restricted communities from search while still serving them
+  by direct name).
+  So whenever the typed query isn't already an exact name match in what search returned, a
+  direct name lookup is spliced in and pinned to the top of the results.
 - **Image prefetch** — `preloadUpcoming()` fires off `new Image()` requests for the next two
   slides (image type only) after every render, so Next/autoplay usually shows an already-cached
   frame instead of a blank one.

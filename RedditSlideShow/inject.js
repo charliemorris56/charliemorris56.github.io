@@ -870,12 +870,40 @@
     return [...relMatches, ...extraSubs];
   }
 
+  // Both search endpoints above can omit a subreddit even when the query IS
+  // its exact literal name — confirmed against a real, large, non-quarantined
+  // restricted subreddit whose name neither subreddits/search.json nor
+  // search_reddit_names.json returned at all for a query matching it
+  // exactly, even though a direct /api/info.json?sr_name=<name> lookup finds
+  // it instantly. Reddit's search index itself appears to suppress certain
+  // high-profile restricted communities from search while still serving
+  // them by direct name — include_over_18 doesn't affect this, it's not a
+  // login/session thing either (tested logged out; info.json still returned
+  // full data). So: whenever the typed query isn't already an exact name
+  // match in what search returned, try a direct name lookup and splice it in.
+  async function ensureExactMatch(query, subs, signal) {
+    const needle = query.toLowerCase();
+    if (subs.some((d) => d.display_name.toLowerCase() === needle)) return subs;
+    try {
+      const res = await fetch(`https://old.reddit.com/api/info.json?sr_name=${encodeURIComponent(query)}`, { signal });
+      if (!res.ok) return subs;
+      const data = await res.json();
+      const exact = ((data && data.data && data.data.children) || []).map((c) => c.data)[0];
+      if (exact && exact.display_name) return [exact, ...subs];
+    } catch (err) {
+      // Best-effort — a failed fallback lookup shouldn't break the rest of
+      // the results that already came back fine.
+    }
+    return subs;
+  }
+
   // Same-origin fetch (we're running on old.reddit.com itself) — the same
   // reason loadMore() above needs no proxy. This is why subreddit search
   // has to live inside the injected overlay rather than on the landing
   // page: reddit.com won't answer this request cross-origin.
-  async function runSubredditSearch(query) {
+  async function runSubredditSearch(rawQuery) {
     if (searchAbortController) searchAbortController.abort();
+    const query = rawQuery.trim().replace(/^\/?r\//i, "");
     if (!query || query.length < 2) {
       els.searchResults.innerHTML = "";
       return;
@@ -899,7 +927,15 @@
         const data = await res.json();
         subs = (data && data.data && data.data.children ? data.data.children : []).map((c) => c.data);
       }
-      subs = subs.filter((d) => d && d.display_name).sort((a, b) => (b.subscribers || 0) - (a.subscribers || 0));
+      subs = subs.filter((d) => d && d.display_name);
+      subs = await ensureExactMatch(query, subs, signal);
+      const needle = query.toLowerCase();
+      subs.sort((a, b) => {
+        const aExact = a.display_name.toLowerCase() === needle;
+        const bExact = b.display_name.toLowerCase() === needle;
+        if (aExact !== bExact) return aExact ? -1 : 1;
+        return (b.subscribers || 0) - (a.subscribers || 0);
+      });
       renderSearchResults(subs);
     } catch (err) {
       if (err.name === "AbortError") return;
