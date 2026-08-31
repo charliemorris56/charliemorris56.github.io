@@ -136,16 +136,12 @@
     // Subreddit listings have a .redditname; user profiles (/user/<name>/…)
     // don't — they render the username in #header .pagename instead.
     let subredditLabel = "";
-    let isUserPage = false;
     const srNameEl = doc.querySelector("#header .redditname a, .redditname a");
     const userNameEl = doc.querySelector("#header .pagename");
     if (srNameEl) subredditLabel = `r/${srNameEl.textContent.trim()}`;
-    else if (userNameEl) {
-      subredditLabel = `u/${userNameEl.textContent.trim()}`;
-      isUserPage = true;
-    }
+    else if (userNameEl) subredditLabel = `u/${userNameEl.textContent.trim()}`;
 
-    return { items, nextPageUrl, subredditLabel, isUserPage };
+    return { items, nextPageUrl, subredditLabel };
   }
 
   // ---------- overlay shell (Shadow DOM so reddit's own CSS can't leak in,
@@ -517,7 +513,6 @@
     autoplayEndedHandler: null,
     nextPageUrl: null,
     hls: null,
-    isUserPage: false,
   };
 
   // ---------- UI helpers (ported near-verbatim from the fetch-based version) ----------
@@ -598,8 +593,7 @@
     els.mediaContainer.appendChild(el);
 
     els.counter.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
-    const displayTitle =
-      state.isUserPage && item.subreddit ? `r/${item.subreddit} — ${item.title || ""}` : item.title || "";
+    const displayTitle = item.subreddit ? `r/${item.subreddit} — ${item.title || ""}` : item.title || "";
     els.postTitle.textContent = displayTitle;
     els.postTitle.title = displayTitle;
     els.postTitleFs.textContent = displayTitle;
@@ -739,7 +733,7 @@
     showSlideshow(false);
     setStatus("", false);
 
-    const { items, nextPageUrl, subredditLabel, isUserPage } = extractItemsFromDoc(document, location.href);
+    const { items, nextPageUrl, subredditLabel } = extractItemsFromDoc(document, location.href);
 
     if (items.length === 0) {
       setStatus(
@@ -751,7 +745,6 @@
 
     state.items = items;
     state.nextPageUrl = nextPageUrl;
-    state.isUserPage = isUserPage;
     els.subTitle.textContent = subredditLabel || "Reddit";
     els.subTitle.href = location.href;
     syncSortControlsFromLocation();
