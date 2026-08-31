@@ -84,7 +84,10 @@
     for (const thing of things) {
       if (thing.classList.contains("promoted") || thing.classList.contains("stickied")) continue;
       const permalinkPath = thing.getAttribute("data-permalink");
-      const title = thing.getAttribute("data-title") || "";
+      // Reddit dropped the data-title attribute at some point — the title
+      // text only exists in the visible title link now.
+      const titleEl = thing.querySelector("a.title");
+      const title = titleEl ? titleEl.textContent.trim() : "";
       const permalink = permalinkPath ? `https://old.reddit.com${permalinkPath}` : baseUrl;
       // Permalinks are always /r/<subreddit>/comments/... regardless of which
       // listing page we scraped them from, so this is a reliable per-post
