@@ -86,6 +86,11 @@
       const permalinkPath = thing.getAttribute("data-permalink");
       const title = thing.getAttribute("data-title") || "";
       const permalink = permalinkPath ? `https://old.reddit.com${permalinkPath}` : baseUrl;
+      // Permalinks are always /r/<subreddit>/comments/... regardless of which
+      // listing page we scraped them from, so this is a reliable per-post
+      // subreddit even on a /user/<name>/submitted page that spans many subs.
+      const subredditMatch = permalinkPath ? permalinkPath.match(/^\/r\/([^/]+)\//i) : null;
+      const subreddit = subredditMatch ? subredditMatch[1] : "";
 
       if (thing.getAttribute("data-is-gallery") === "true") {
         const images = extractGalleryImages(thing);
@@ -98,6 +103,7 @@
             src,
             title,
             permalink,
+            subreddit,
             galleryId,
             galleryIndex: idx + 1,
             galleryTotal: images.length,
@@ -120,7 +126,7 @@
       if (seen.has(media.src)) continue;
       seen.add(media.src);
 
-      items.push({ type: media.type, src: media.src, title, permalink });
+      items.push({ type: media.type, src: media.src, title, permalink, subreddit });
     }
 
     let nextPageUrl = null;
@@ -130,12 +136,16 @@
     // Subreddit listings have a .redditname; user profiles (/user/<name>/…)
     // don't — they render the username in #header .pagename instead.
     let subredditLabel = "";
+    let isUserPage = false;
     const srNameEl = doc.querySelector("#header .redditname a, .redditname a");
     const userNameEl = doc.querySelector("#header .pagename");
     if (srNameEl) subredditLabel = `r/${srNameEl.textContent.trim()}`;
-    else if (userNameEl) subredditLabel = `u/${userNameEl.textContent.trim()}`;
+    else if (userNameEl) {
+      subredditLabel = `u/${userNameEl.textContent.trim()}`;
+      isUserPage = true;
+    }
 
-    return { items, nextPageUrl, subredditLabel };
+    return { items, nextPageUrl, subredditLabel, isUserPage };
   }
 
   // ---------- overlay shell (Shadow DOM so reddit's own CSS can't leak in,
@@ -250,10 +260,6 @@
       cursor: pointer; user-select: none;
     }
     .search-strict-label input[type="checkbox"] { accent-color: #ff4500; margin: 0; }
-    .sr-restricted-tag {
-      background: rgba(255,69,0,0.2); color: #ff4500; border-radius: 4px;
-      padding: 0.05rem 0.35rem; font-size: 0.7rem; font-weight: 700; margin-right: 0.35rem;
-    }
     .search-results { display: flex; flex-direction: column; gap: 0.3rem; max-height: 260px; overflow-y: auto; }
     .search-result-item {
       display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -277,13 +283,12 @@
     .nav-arrow {
       position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px;
       border-radius: 50%; border: none; background: rgba(0,0,0,0.45); color: white; font-size: 1.3rem;
-      line-height: 1; cursor: pointer; z-index: 2; opacity: 0; display: flex; align-items: center;
-      justify-content: center; transition: opacity 0.15s ease, background 0.15s ease;
+      line-height: 1; cursor: pointer; z-index: 2; opacity: 1; display: flex; align-items: center;
+      justify-content: center; transition: background 0.15s ease;
     }
     .nav-arrow-left { left: 10px; }
     .nav-arrow-right { right: 10px; }
     .nav-arrow:hover { background: rgba(0,0,0,0.65); }
-    .media-viewport:hover .nav-arrow, .nav-arrow:focus { opacity: 1; }
 
     .exit-fullscreen-btn {
       position: absolute; top: calc(14px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right));
@@ -312,6 +317,14 @@
     }
     .permalink-fs:hover { background: rgba(0,0,0,0.75); }
     .media-viewport:fullscreen .permalink-fs { display: block; }
+
+    .post-title-fs {
+      position: absolute; bottom: calc(14px + env(safe-area-inset-bottom)); left: calc(14px + env(safe-area-inset-left));
+      max-width: min(60%, 420px); padding: 0.5rem 0.9rem; border-radius: 999px;
+      background: rgba(0,0,0,0.55); color: white; font-weight: 600; font-size: 0.85rem;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; z-index: 3; display: none;
+    }
+    .media-viewport:fullscreen .post-title-fs { display: block; }
 
     .slideshow-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 0.25rem; flex-wrap: wrap; }
     .post-info { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1; }
@@ -352,11 +365,12 @@
       .sort-go-btn { min-height: 46px; font-size: 1rem; }
       .search-input { min-height: 46px; font-size: 1rem; }
       .search-result-item { min-height: 48px; font-size: 0.9rem; }
-      .nav-arrow { opacity: 1; width: 52px; height: 52px; font-size: 1.5rem; }
+      .nav-arrow { width: 52px; height: 52px; font-size: 1.5rem; }
       .nav-arrow-left { left: 8px; }
       .nav-arrow-right { right: 8px; }
       .exit-fullscreen-btn { width: 48px; height: 48px; font-size: 1.8rem; }
-      .skip-gallery-fs-btn, .permalink-fs { padding: 0.75rem 1rem; font-size: 0.85rem; }
+      .skip-gallery-fs-btn, .permalink-fs, .post-title-fs { padding: 0.75rem 1rem; font-size: 0.85rem; }
+      .post-title-fs { max-width: 50%; }
       .slideshow-footer { flex-direction: column; align-items: stretch; gap: 0.6rem; }
       #load-more-btn { width: 100%; min-height: 48px; font-size: 1rem; }
       .post-info { flex-direction: column; gap: 0.2rem; width: 100%; text-align: center; }
@@ -436,6 +450,7 @@
           <button id="next-btn" class="nav-arrow nav-arrow-right" type="button" aria-label="Next">&#10095;</button>
           <button id="exit-fullscreen-btn" class="exit-fullscreen-btn" type="button" aria-label="Exit fullscreen" title="Exit fullscreen">&times;</button>
           <button id="skip-gallery-btn-fs" class="skip-gallery-fs-btn hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
+          <span id="post-title-fs" class="post-title-fs"></span>
           <a id="permalink-fs" class="permalink-fs" href="#" target="_blank" rel="noopener" title="View post on Reddit">View on Reddit ↗</a>
         </div>
         <div class="slideshow-footer">
@@ -478,6 +493,7 @@
     postTitle: shadow.getElementById("post-title"),
     permalink: shadow.getElementById("permalink"),
     permalinkFs: shadow.getElementById("permalink-fs"),
+    postTitleFs: shadow.getElementById("post-title-fs"),
     loadMoreBtn: shadow.getElementById("load-more-btn"),
     sortToggleBtn: shadow.getElementById("sort-toggle-btn"),
     sortPanel: shadow.getElementById("sort-panel"),
@@ -501,6 +517,7 @@
     autoplayEndedHandler: null,
     nextPageUrl: null,
     hls: null,
+    isUserPage: false,
   };
 
   // ---------- UI helpers (ported near-verbatim from the fetch-based version) ----------
@@ -581,8 +598,12 @@
     els.mediaContainer.appendChild(el);
 
     els.counter.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
-    els.postTitle.textContent = item.title || "";
-    els.postTitle.title = item.title || "";
+    const displayTitle =
+      state.isUserPage && item.subreddit ? `r/${item.subreddit} — ${item.title || ""}` : item.title || "";
+    els.postTitle.textContent = displayTitle;
+    els.postTitle.title = displayTitle;
+    els.postTitleFs.textContent = displayTitle;
+    els.postTitleFs.title = displayTitle;
     els.permalink.href = item.permalink;
     els.permalinkFs.href = item.permalink;
     els.loadMoreBtn.classList.toggle("hidden", !state.nextPageUrl);
@@ -718,7 +739,7 @@
     showSlideshow(false);
     setStatus("", false);
 
-    const { items, nextPageUrl, subredditLabel } = extractItemsFromDoc(document, location.href);
+    const { items, nextPageUrl, subredditLabel, isUserPage } = extractItemsFromDoc(document, location.href);
 
     if (items.length === 0) {
       setStatus(
@@ -730,6 +751,7 @@
 
     state.items = items;
     state.nextPageUrl = nextPageUrl;
+    state.isUserPage = isUserPage;
     els.subTitle.textContent = subredditLabel || "Reddit";
     els.subTitle.href = location.href;
     syncSortControlsFromLocation();
@@ -807,7 +829,7 @@
       btn.type = "button";
       btn.className = "search-result-item";
       btn.innerHTML =
-        `<span class="sr-name">${sr.over18 ? '<span class="sr-restricted-tag">Restricted</span>' : ""}r/${sr.display_name}</span>` +
+        `<span class="sr-name">r/${sr.display_name}</span>` +
         `<span class="sr-subs">${formatSubscribers(sr.subscribers)} members</span>`;
       btn.addEventListener("click", () => {
         window.location.href = `https://old.reddit.com/r/${encodeURIComponent(sr.display_name)}/hot/?slideshow=1`;
