@@ -331,6 +331,8 @@
       color: #e8eaed; font-size: 0.85rem; font-weight: 600; overflow: hidden;
       text-overflow: ellipsis; white-space: nowrap; min-width: 0;
     }
+    .post-title-sub { color: #ff4500; text-decoration: none; }
+    .post-title-sub:hover { text-decoration: underline; }
     .permalink { color: #9aa0aa; text-decoration: none; font-size: 0.85rem; white-space: nowrap; }
     .permalink:hover { color: #e8eaed; }
 
@@ -449,12 +451,16 @@
           <button id="next-btn" class="nav-arrow nav-arrow-right" type="button" aria-label="Next">&#10095;</button>
           <button id="exit-fullscreen-btn" class="exit-fullscreen-btn" type="button" aria-label="Exit fullscreen" title="Exit fullscreen">&times;</button>
           <button id="skip-gallery-btn-fs" class="skip-gallery-fs-btn hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
-          <span id="post-title-fs" class="post-title-fs"></span>
+          <span id="post-title-fs" class="post-title-fs">
+            <a id="post-title-fs-sub" class="post-title-sub" href="#" target="_blank" rel="noopener"></a><span id="post-title-fs-text"></span>
+          </span>
           <a id="permalink-fs" class="permalink-fs" href="#" target="_blank" rel="noopener" title="View post on Reddit">View on Reddit ↗</a>
         </div>
         <div class="slideshow-footer">
           <div class="post-info">
-            <span id="post-title" class="post-title"></span>
+            <span id="post-title" class="post-title">
+              <a id="post-title-sub" class="post-title-sub" href="#" target="_blank" rel="noopener"></a><span id="post-title-text"></span>
+            </span>
             <a id="permalink" class="permalink" href="#" target="_blank" rel="noopener">View post on Reddit ↗</a>
           </div>
           <button id="load-more-btn" class="hidden" type="button">Load more posts</button>
@@ -490,9 +496,13 @@
     fullscreenBtn: shadow.getElementById("fullscreen-btn"),
     exitFullscreenBtn: shadow.getElementById("exit-fullscreen-btn"),
     postTitle: shadow.getElementById("post-title"),
+    postTitleSub: shadow.getElementById("post-title-sub"),
+    postTitleText: shadow.getElementById("post-title-text"),
     permalink: shadow.getElementById("permalink"),
     permalinkFs: shadow.getElementById("permalink-fs"),
     postTitleFs: shadow.getElementById("post-title-fs"),
+    postTitleFsSub: shadow.getElementById("post-title-fs-sub"),
+    postTitleFsText: shadow.getElementById("post-title-fs-text"),
     loadMoreBtn: shadow.getElementById("load-more-btn"),
     sortToggleBtn: shadow.getElementById("sort-toggle-btn"),
     sortPanel: shadow.getElementById("sort-panel"),
@@ -597,10 +607,19 @@
 
     els.counter.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
     const displayTitle = item.subreddit ? `r/${item.subreddit} — ${item.title || ""}` : item.title || "";
-    els.postTitle.textContent = displayTitle;
+    const subHref = item.subreddit ? `https://old.reddit.com/r/${encodeURIComponent(item.subreddit)}/` : "";
+    const subText = item.subreddit ? `r/${item.subreddit}` : "";
+    const titleText = item.subreddit ? ` — ${item.title || ""}` : item.title || "";
     els.postTitle.title = displayTitle;
-    els.postTitleFs.textContent = displayTitle;
+    els.postTitleSub.textContent = subText;
+    els.postTitleSub.href = subHref || "#";
+    els.postTitleSub.classList.toggle("hidden", !item.subreddit);
+    els.postTitleText.textContent = titleText;
     els.postTitleFs.title = displayTitle;
+    els.postTitleFsSub.textContent = subText;
+    els.postTitleFsSub.href = subHref || "#";
+    els.postTitleFsSub.classList.toggle("hidden", !item.subreddit);
+    els.postTitleFsText.textContent = titleText;
     els.permalink.href = item.permalink;
     els.permalinkFs.href = item.permalink;
     els.loadMoreBtn.classList.toggle("hidden", !state.nextPageUrl);
