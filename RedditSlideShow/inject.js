@@ -94,6 +94,7 @@
       // subreddit even on a /user/<name>/submitted page that spans many subs.
       const subredditMatch = permalinkPath ? permalinkPath.match(/^\/r\/([^/]+)\//i) : null;
       const subreddit = subredditMatch ? subredditMatch[1] : "";
+      const author = thing.getAttribute("data-author") || "";
 
       if (thing.getAttribute("data-is-gallery") === "true") {
         const images = extractGalleryImages(thing);
@@ -107,6 +108,7 @@
             title,
             permalink,
             subreddit,
+            author,
             galleryId,
             galleryIndex: idx + 1,
             galleryTotal: images.length,
@@ -129,7 +131,7 @@
       if (seen.has(media.src)) continue;
       seen.add(media.src);
 
-      items.push({ type: media.type, src: media.src, title, permalink, subreddit });
+      items.push({ type: media.type, src: media.src, title, permalink, subreddit, author });
     }
 
     let nextPageUrl = null;
@@ -289,41 +291,41 @@
     .nav-arrow-right { right: 10px; }
     .nav-arrow:hover { background: rgba(0,0,0,0.65); }
 
+    .fs-top-bar {
+      position: absolute; top: calc(14px + env(safe-area-inset-top));
+      left: calc(14px + env(safe-area-inset-left)); right: calc(14px + env(safe-area-inset-right));
+      display: none; align-items: flex-start; justify-content: space-between; gap: 0.6rem; z-index: 3;
+    }
+    .media-viewport:fullscreen .fs-top-bar { display: flex; }
+    .fs-top-left, .fs-top-right { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+
     .exit-fullscreen-btn {
-      position: absolute; top: calc(14px + env(safe-area-inset-top)); right: calc(14px + env(safe-area-inset-right));
-      width: 40px; height: 40px; border-radius: 50%;
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
       border: none; background: rgba(0,0,0,0.45); color: white; font-size: 1.6rem; line-height: 1;
-      cursor: pointer; z-index: 3; display: none; align-items: center; justify-content: center;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
       transition: background 0.15s ease;
     }
     .exit-fullscreen-btn:hover { background: rgba(0,0,0,0.65); }
-    .media-viewport:fullscreen .exit-fullscreen-btn { display: flex; }
 
     .skip-gallery-fs-btn {
-      position: absolute; top: calc(14px + env(safe-area-inset-top)); left: calc(14px + env(safe-area-inset-left));
-      padding: 0.5rem 0.9rem; border-radius: 999px;
+      padding: 0.5rem 0.9rem; border-radius: 999px; flex-shrink: 0;
       border: none; background: rgba(0,0,0,0.55); color: white; font-weight: 600; font-size: 0.85rem;
-      cursor: pointer; z-index: 3; display: none; transition: background 0.15s ease;
+      cursor: pointer; transition: background 0.15s ease;
     }
     .skip-gallery-fs-btn:hover { background: rgba(0,0,0,0.75); }
-    .media-viewport:fullscreen .skip-gallery-fs-btn:not(.hidden) { display: block; }
 
     .permalink-fs {
-      position: absolute; bottom: calc(14px + env(safe-area-inset-bottom)); right: calc(14px + env(safe-area-inset-right));
-      padding: 0.5rem 0.9rem; border-radius: 999px;
+      padding: 0.5rem 0.9rem; border-radius: 999px; flex-shrink: 0;
       background: rgba(0,0,0,0.55); color: white; font-weight: 600; font-size: 0.85rem;
-      text-decoration: none; z-index: 3; display: none; transition: background 0.15s ease;
+      text-decoration: none; transition: background 0.15s ease;
     }
     .permalink-fs:hover { background: rgba(0,0,0,0.75); }
-    .media-viewport:fullscreen .permalink-fs { display: block; }
 
     .post-title-fs {
-      position: absolute; bottom: calc(14px + env(safe-area-inset-bottom)); left: calc(14px + env(safe-area-inset-left));
       max-width: min(60%, 420px); padding: 0.5rem 0.9rem; border-radius: 999px;
       background: rgba(0,0,0,0.55); color: white; font-weight: 600; font-size: 0.85rem;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; z-index: 3; display: none;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
     }
-    .media-viewport:fullscreen .post-title-fs { display: block; }
 
     .slideshow-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.75rem 0.25rem; flex-wrap: wrap; }
     .post-info { display: flex; align-items: center; gap: 0.6rem; min-width: 0; flex: 1; }
@@ -333,6 +335,8 @@
     }
     .post-title-sub { color: #ff4500; text-decoration: none; }
     .post-title-sub:hover { text-decoration: underline; }
+    .post-title-author { color: #9aa0aa; text-decoration: none; margin-left: 0.35em; }
+    .post-title-author:hover { color: #e8eaed; text-decoration: underline; }
     .permalink { color: #9aa0aa; text-decoration: none; font-size: 0.85rem; white-space: nowrap; }
     .permalink:hover { color: #e8eaed; }
 
@@ -370,8 +374,11 @@
       .nav-arrow-left { left: 8px; }
       .nav-arrow-right { right: 8px; }
       .exit-fullscreen-btn { width: 48px; height: 48px; font-size: 1.8rem; }
-      .skip-gallery-fs-btn, .permalink-fs, .post-title-fs { padding: 0.75rem 1rem; font-size: 0.85rem; }
-      .post-title-fs { max-width: 50%; }
+      .skip-gallery-fs-btn { padding: 0.75rem 1rem; font-size: 0.85rem; }
+      /* On mobile fullscreen there's not enough room for the permalink and
+         title/subreddit/author pills alongside the exit button without
+         crowding the video controls, so they're dropped entirely there. */
+      .permalink-fs, .post-title-fs { display: none !important; }
       .slideshow-footer { flex-direction: column; align-items: stretch; gap: 0.6rem; }
       #load-more-btn { width: 100%; min-height: 48px; font-size: 1rem; }
       .post-info { flex-direction: column; gap: 0.2rem; width: 100%; text-align: center; }
@@ -449,17 +456,23 @@
           <button id="prev-btn" class="nav-arrow nav-arrow-left" type="button" aria-label="Previous">&#10094;</button>
           <div id="media-container" class="media-container"></div>
           <button id="next-btn" class="nav-arrow nav-arrow-right" type="button" aria-label="Next">&#10095;</button>
-          <button id="exit-fullscreen-btn" class="exit-fullscreen-btn" type="button" aria-label="Exit fullscreen" title="Exit fullscreen">&times;</button>
-          <button id="skip-gallery-btn-fs" class="skip-gallery-fs-btn hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
-          <span id="post-title-fs" class="post-title-fs">
-            <a id="post-title-fs-sub" class="post-title-sub" href="#" target="_blank" rel="noopener"></a><span id="post-title-fs-text"></span>
-          </span>
-          <a id="permalink-fs" class="permalink-fs" href="#" target="_blank" rel="noopener" title="View post on Reddit">View on Reddit ↗</a>
+          <div class="fs-top-bar">
+            <div class="fs-top-left">
+              <button id="skip-gallery-btn-fs" class="skip-gallery-fs-btn hidden" type="button" title="Skip to the next post">Skip gallery ⏭</button>
+              <span id="post-title-fs" class="post-title-fs">
+                <a id="post-title-fs-sub" class="post-title-sub" href="#"></a><a id="post-title-fs-author" class="post-title-author" href="#"></a><span id="post-title-fs-text"></span>
+              </span>
+            </div>
+            <div class="fs-top-right">
+              <a id="permalink-fs" class="permalink-fs" href="#" target="_blank" rel="noopener" title="View post on Reddit">View on Reddit ↗</a>
+              <button id="exit-fullscreen-btn" class="exit-fullscreen-btn" type="button" aria-label="Exit fullscreen" title="Exit fullscreen">&times;</button>
+            </div>
+          </div>
         </div>
         <div class="slideshow-footer">
           <div class="post-info">
             <span id="post-title" class="post-title">
-              <a id="post-title-sub" class="post-title-sub" href="#" target="_blank" rel="noopener"></a><span id="post-title-text"></span>
+              <a id="post-title-sub" class="post-title-sub" href="#"></a><a id="post-title-author" class="post-title-author" href="#"></a><span id="post-title-text"></span>
             </span>
             <a id="permalink" class="permalink" href="#" target="_blank" rel="noopener">View post on Reddit ↗</a>
           </div>
@@ -497,11 +510,13 @@
     exitFullscreenBtn: shadow.getElementById("exit-fullscreen-btn"),
     postTitle: shadow.getElementById("post-title"),
     postTitleSub: shadow.getElementById("post-title-sub"),
+    postTitleAuthor: shadow.getElementById("post-title-author"),
     postTitleText: shadow.getElementById("post-title-text"),
     permalink: shadow.getElementById("permalink"),
     permalinkFs: shadow.getElementById("permalink-fs"),
     postTitleFs: shadow.getElementById("post-title-fs"),
     postTitleFsSub: shadow.getElementById("post-title-fs-sub"),
+    postTitleFsAuthor: shadow.getElementById("post-title-fs-author"),
     postTitleFsText: shadow.getElementById("post-title-fs-text"),
     loadMoreBtn: shadow.getElementById("load-more-btn"),
     sortToggleBtn: shadow.getElementById("sort-toggle-btn"),
@@ -525,6 +540,7 @@
     autoplayEndedEl: null,
     autoplayEndedHandler: null,
     nextPageUrl: null,
+    loadingMore: false,
     hls: null,
   };
 
@@ -606,19 +622,35 @@
     els.mediaContainer.appendChild(el);
 
     els.counter.textContent = `${state.currentIndex + 1} / ${state.items.length}`;
-    const displayTitle = item.subreddit ? `r/${item.subreddit} — ${item.title || ""}` : item.title || "";
-    const subHref = item.subreddit ? `https://old.reddit.com/r/${encodeURIComponent(item.subreddit)}/` : "";
+    const displayTitle = [
+      item.subreddit ? `r/${item.subreddit}` : "",
+      item.author ? `u/${item.author}` : "",
+    ].filter(Boolean).join(" ") + (item.title ? ` — ${item.title}` : "");
+    // No target="_blank" here (unlike sub-title/permalink above) — these
+    // links are meant to switch the slideshow to that subreddit/user, not
+    // just peek at it, so they navigate in place. The slideshow=1 marker
+    // makes the userscript (if installed) auto-relaunch on load; without it,
+    // this is still a same-tab navigation to that listing.
+    const subHref = item.subreddit ? `https://old.reddit.com/r/${encodeURIComponent(item.subreddit)}/?slideshow=1` : "";
     const subText = item.subreddit ? `r/${item.subreddit}` : "";
-    const titleText = item.subreddit ? ` — ${item.title || ""}` : item.title || "";
+    const authorHref = item.author ? `https://old.reddit.com/user/${encodeURIComponent(item.author)}/?slideshow=1` : "";
+    const authorText = item.author ? `u/${item.author}` : "";
+    const titleText = item.subreddit || item.author ? ` — ${item.title || ""}` : item.title || "";
     els.postTitle.title = displayTitle;
     els.postTitleSub.textContent = subText;
     els.postTitleSub.href = subHref || "#";
     els.postTitleSub.classList.toggle("hidden", !item.subreddit);
+    els.postTitleAuthor.textContent = authorText;
+    els.postTitleAuthor.href = authorHref || "#";
+    els.postTitleAuthor.classList.toggle("hidden", !item.author);
     els.postTitleText.textContent = titleText;
     els.postTitleFs.title = displayTitle;
     els.postTitleFsSub.textContent = subText;
     els.postTitleFsSub.href = subHref || "#";
     els.postTitleFsSub.classList.toggle("hidden", !item.subreddit);
+    els.postTitleFsAuthor.textContent = authorText;
+    els.postTitleFsAuthor.href = authorHref || "#";
+    els.postTitleFsAuthor.classList.toggle("hidden", !item.author);
     els.postTitleFsText.textContent = titleText;
     els.permalink.href = item.permalink;
     els.permalinkFs.href = item.permalink;
@@ -634,6 +666,12 @@
 
     scheduleAutoplayAdvance();
     preloadUpcoming();
+    // Reaching the last fetched slide fetches the next page automatically —
+    // without this, goTo()'s wraparound would silently loop back to slide 1
+    // instead of continuing into posts that are one page-fetch away.
+    if (state.currentIndex === state.items.length - 1 && state.nextPageUrl && !state.loadingMore) {
+      loadMore();
+    }
   }
 
   // Warms the browser's own cache for the next couple of image slides so
@@ -1000,7 +1038,8 @@
   }
 
   async function loadMore() {
-    if (!state.nextPageUrl) return;
+    if (!state.nextPageUrl || state.loadingMore) return;
+    state.loadingMore = true;
     els.loadMoreBtn.disabled = true;
     els.loadMoreBtn.textContent = "Loading…";
     try {
@@ -1017,6 +1056,7 @@
     } catch (err) {
       setStatus("Failed to load more posts. Try again shortly.", true);
     } finally {
+      state.loadingMore = false;
       els.loadMoreBtn.disabled = false;
       els.loadMoreBtn.textContent = "Load more posts";
     }
